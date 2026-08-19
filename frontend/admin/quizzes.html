@@ -135,7 +135,7 @@
   let allQuizzes = [];
 
   async function loadQuizzes() {
-    const res  = await adminFetch('https://ieee-quiz-c3u1.onrender.com/api/admin/quizzes');
+    const res  = await adminFetch('https://quiz-app-2l4p.onrender.com/api/admin/quizzes');
     const data = await res.json();
     allQuizzes = data.success ? data.quizzes : [];
     renderCards(allQuizzes);
@@ -242,7 +242,7 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Saving...';
 
-    const res  = await adminFetch(editId ? `https://ieee-quiz-c3u1.onrender.com/api/admin/quizzes/${editId}` : 'https://ieee-quiz-c3u1.onrender.com/api/admin/quizzes',
+    const res  = await adminFetch(editId ? `https://quiz-app-2l4p.onrender.com/api/admin/quizzes/${editId}` : 'https://quiz-app-2l4p.onrender.com/api/admin/quizzes',
       { method: editId ? 'PUT' : 'POST', body: JSON.stringify(payload) });
     const data = await res.json();
     btn.disabled = false; btn.textContent = 'Save Quiz';
@@ -252,14 +252,14 @@
   }
 
   async function toggleActive(id, active) {
-    const res  = await adminFetch(`https://ieee-quiz-c3u1.onrender.com/api/admin/quizzes/${id}`, { method:'PUT', body: JSON.stringify({ isActive: active }) });
+    const res  = await adminFetch(`https://quiz-app-2l4p.onrender.com/api/admin/quizzes/${id}`, { method:'PUT', body: JSON.stringify({ isActive: active }) });
     const data = await res.json();
     if (data.success) { showToast(active ? '▶ Quiz activated!' : '⏸ Quiz deactivated!'); await loadQuizzes(); }
   }
 
   async function deleteQuiz(id) {
     if (!confirm('Delete this quiz and ALL its questions and attempts? This cannot be undone.')) return;
-    const res  = await adminFetch(`https://ieee-quiz-c3u1.onrender.com/api/admin/quizzes/${id}`, { method:'DELETE' });
+    const res  = await adminFetch(`https://quiz-app-2l4p.onrender.com/api/admin/quizzes/${id}`, { method:'DELETE' });
     const data = await res.json();
     if (data.success) { showToast('🗑 Quiz deleted.'); await loadQuizzes(); }
     else showToast('❌ ' + data.message, 'error');
@@ -303,7 +303,7 @@
     btn.innerHTML = '<span class="spinner"></span> AI Generating... (Wait)';
 
     try {
-      const res = await fetch('https://ieee-quiz-c3u1.onrender.com/api/admin/quizzes/generate-pdf', {
+      const res = await fetch('https://quiz-app-2l4p.onrender.com/api/admin/quizzes/generate-pdf', {
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + ADMIN_TOKEN

@@ -172,7 +172,7 @@ async function autoSubmit() {
 // ─── Load Questions ───────────────────────────────────────────
 async function loadQuestions() {
   try {
-    const res  = await fetch(`https://ieee-quiz-c3u1.onrender.com/api/quizzes/${QUIZ_ID}/questions`, {
+    const res  = await fetch(`https://quiz-app-2l4p.onrender.com/api/quizzes/${QUIZ_ID}/questions`, {
       headers: { Authorization: 'Bearer ' + TOKEN }
     });
     const data = await res.json();
@@ -269,7 +269,7 @@ async function selectAnswer(questionId, optionIndex, li) {
 
   // Save to server (non-blocking)
   try {
-    await fetch(`https://ieee-quiz-c3u1.onrender.com/api/attempts/${ATTEMPT_ID}/answer`, {
+    await fetch(`https://quiz-app-2l4p.onrender.com/api/attempts/${ATTEMPT_ID}/answer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -293,7 +293,7 @@ async function clearAnswer() {
   updateSummary();
 
   try {
-    await fetch(`https://ieee-quiz-c3u1.onrender.com/api/attempts/${ATTEMPT_ID}/answer`, {
+    await fetch(`https://quiz-app-2l4p.onrender.com/api/attempts/${ATTEMPT_ID}/answer`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -439,7 +439,7 @@ async function submitQuiz() {
 
 async function doSubmit(reason) {
   try {
-    const res  = await fetch(`https://ieee-quiz-c3u1.onrender.com/api/attempts/${ATTEMPT_ID}/submit`, {
+    const res  = await fetch(`https://quiz-app-2l4p.onrender.com/api/attempts/${ATTEMPT_ID}/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
