@@ -1,12 +1,7 @@
 const path = require('path');
-const dotenv = require('dotenv');
 
-// Load .env from the backend folder explicitly
-dotenv.config({ path: path.join(__dirname, 'backend', '.env') });
-
-// Change the current working directory to the backend folder 
-// so that relative paths work correctly.
+// Change working directory to backend so dotenv and all relative paths work
 process.chdir(path.join(__dirname, 'backend'));
 
-// Execute the actual backend server
+// Execute the actual backend server (it loads its own dotenv)
 require('./backend/server.js');
