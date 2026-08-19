@@ -364,7 +364,10 @@
   </div>
 </footer>
 
-<script>
+<script type="module">
+  import { trackPageView } from '/js/firebase.js';
+  trackPageView('Home / Landing Page');
+
   // Redirect if already logged in
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user') || 'null');

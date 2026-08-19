@@ -65,7 +65,10 @@
 
 <div id="toast"></div>
 
-<script>
+<script type="module">
+  import { trackPageView, trackLogin } from '/js/firebase.js';
+  trackPageView('Login Page');
+
   if (localStorage.getItem('token')) {
     const u = JSON.parse(localStorage.getItem('user') || '{}');
     window.location.href = u.role === 'admin' ? '/admin/dashboard.html' : '/instructions.html';
@@ -77,11 +80,12 @@
     inp.type = inp.type === 'password' ? 'text' : 'password';
     btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
   }
+  window.togglePw = togglePw;
 
-  function showMsg(type, text) {
+  function showMsg(type, msg) {
     const box = document.getElementById('msg-box');
-    box.className = `alert alert-${type}`;
-    box.textContent = text;
+    box.textContent = msg;
+    box.className = 'msg-box ' + type;
     box.style.display = 'flex';
   }
 
@@ -105,6 +109,7 @@
       if (data.success) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        trackLogin('email');
         showMsg('success', '✅ Login successful! Redirecting...');
         setTimeout(() => {
           window.location.href = data.user.role === 'admin' ? '/admin/dashboard.html' : '/instructions.html';

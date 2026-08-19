@@ -6,6 +6,9 @@
  * palette coloring, review marking, and submission.
  */
 
+import { trackQuizStart, trackQuizSubmit, trackPageView } from '/js/firebase.js';
+trackPageView('Quiz Page');
+
 // ─── Auth Guard ──────────────────────────────────────────────
 const TOKEN     = localStorage.getItem('token');
 const USER      = JSON.parse(localStorage.getItem('user')     || 'null');
@@ -446,6 +449,7 @@ async function doSubmit(reason) {
     const data = await res.json();
 
     if (data.success) {
+      trackQuizSubmit(QUIZ_ID, data.attempt?.score ?? 0, data.attempt?.totalMarks ?? 0);
       window.location.href = `/result.html?attemptId=${ATTEMPT_ID}`;
     } else {
       isSubmitting = false;
