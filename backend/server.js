@@ -36,12 +36,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // CORS
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? false : '*',
+  origin: process.env.NODE_ENV === 'production' ? (process.env.CLIENT_ORIGIN || true) : '*',
   credentials: true
 }));
 
 // Static files (frontend)
-app.use(express.static(path.join(__dirname, '../client')));
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // API Routes
 app.use('/api/auth', authLimiter, authRoutes);
@@ -54,7 +54,7 @@ app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ success: false, message: 'API route not found' });
   }
-  res.sendFile(path.join(__dirname, '../client/index.html'));
+  res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
 
 // Global Error Handler
@@ -64,7 +64,17 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📋 Admin panel: http://localhost:${PORT}/admin/login.html`);
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use. Another process is listening on this port.`);
+    console.error('Try setting a different PORT environment variable or stop the process using the port.');
+    process.exit(1);
+  }
+  console.error(err);
+  process.exit(1);
 });
