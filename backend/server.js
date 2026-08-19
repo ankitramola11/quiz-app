@@ -15,6 +15,9 @@ const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
+// Trust reverse proxy (required for Render, Heroku etc.)
+app.set('trust proxy', 1);
+
 // Connect Database
 connectDB();
 
