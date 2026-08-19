@@ -311,7 +311,7 @@
 
   async function loadQuiz() {
     try {
-      const res  = await fetch('/api/quizzes/active', {
+      const res  = await fetch('https://ieee-quiz-c3u1.onrender.com/api/quizzes/active', {
         headers: { Authorization: 'Bearer ' + token }
       });
       const data = await res.json();
@@ -363,7 +363,7 @@
     btn.innerHTML = '<span class="spinner"></span> Starting...';
 
     try {
-      const res  = await fetch(`/api/quizzes/${quizData._id}/start`, {
+      const res  = await fetch(`https://ieee-quiz-c3u1.onrender.com/api/quizzes/${quizData._id}/start`, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token }
       });

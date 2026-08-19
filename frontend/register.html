@@ -198,7 +198,7 @@
     };
 
     try {
-      const res  = await fetch('/api/auth/register', {
+      const res  = await fetch('https://ieee-quiz-c3u1.onrender.com/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

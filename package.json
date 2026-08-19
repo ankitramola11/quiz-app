@@ -5,5 +5,8 @@
   "scripts": {
     "postinstall": "cd backend && npm install",
     "start": "cd backend && npm start"
+  },
+  "dependencies": {
+    "glob": "^13.0.6"
   }
 }

@@ -158,7 +158,7 @@
 
   async function loadData() {
     // Load quizzes for filter
-    const qzRes  = await adminFetch('/api/admin/quizzes');
+    const qzRes  = await adminFetch('https://ieee-quiz-c3u1.onrender.com/api/admin/quizzes');
     const qzData = await qzRes.json();
     if (qzData.success) {
       const qzFilter = document.getElementById('filter-quiz');
@@ -173,7 +173,7 @@
   }
 
   async function loadQuestions() {
-    const res  = await adminFetch('/api/admin/questions');
+    const res  = await adminFetch('https://ieee-quiz-c3u1.onrender.com/api/admin/questions');
     const data = await res.json();
     allQuestions = data.success ? data.questions : [];
     renderTable(allQuestions);
@@ -257,7 +257,7 @@
   }
 
   async function editQuestion(id) {
-    const res  = await adminFetch('/api/admin/questions/' + id);
+    const res  = await adminFetch('https://ieee-quiz-c3u1.onrender.com/api/admin/questions/' + id);
     const data = await res.json();
     if (data.success) openModal(data.question);
   }
@@ -295,7 +295,7 @@
     btn.innerHTML = '<span class="spinner"></span> Saving...';
 
     const method = editId ? 'PUT' : 'POST';
-    const url    = editId ? `/api/admin/questions/${editId}` : '/api/admin/questions';
+    const url    = editId ? `https://ieee-quiz-c3u1.onrender.com/api/admin/questions/${editId}` : 'https://ieee-quiz-c3u1.onrender.com/api/admin/questions';
 
     const res  = await adminFetch(url, { method, body: JSON.stringify(payload) });
     const data = await res.json();
@@ -317,7 +317,7 @@
 
   async function deleteQuestion(id) {
     if (!confirm('Delete this question? This cannot be undone.')) return;
-    const res  = await adminFetch('/api/admin/questions/' + id, { method: 'DELETE' });
+    const res  = await adminFetch('https://ieee-quiz-c3u1.onrender.com/api/admin/questions/' + id, { method: 'DELETE' });
     const data = await res.json();
     if (data.success) { showToast('🗑 Question deleted.'); await loadQuestions(); }
     else showToast('❌ ' + data.message, 'error');
