@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Questions – IEEE Admin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+  <div id="admin-sidebar-slot"></div>
+
+  <div class="admin-main">
+    <div class="admin-page-header">
+      <div><h1>❓ Question Bank</h1><p>Add, edit, and manage all quiz questions</p></div>
+      <button class="btn btn-primary" onclick="openModal()">➕ Add Question</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search questions..." oninput="filterQuestions()" />
+      </div>
+      <select id="filter-quiz"     onchange="filterQuestions()"><option value="">All Quizzes</option></select>
+      <select id="filter-category" onchange="filterQuestions()">
+        <option value="">All Categories</option>
+        <option>Quantitative Aptitude</option>
+        <option>Logical Reasoning</option>
+        <option>Verbal Ability</option>
+        <option>Technical / General Awareness</option>
+      </select>
+      <select id="filter-diff"     onchange="filterQuestions()">
+        <option value="">All Difficulties</option>
+        <option>Easy</option><option>Medium</option><option>Hard</option>
+      </select>
+    </div>
+
+    <!-- Count -->
+    <p id="q-count" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;"></p>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th style="min-width:300px;">Question</th>
+            <th>Category</th>
+            <th>Difficulty</th>
+            <th>Marks</th>
+            <th>Quiz</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="questions-table">
+          <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Add/Edit Modal ─────────────────────────────────────── -->
+<div class="admin-modal-overlay" id="q-modal">
+  <div class="admin-modal">
+    <h3 id="modal-title">Add Question</h3>
+    <div id="modal-msg" style="display:none; margin-bottom:1rem;"></div>
+
+    <input type="hidden" id="edit-id" />
+
+    <div class="form-group">
+      <label for="q-quiz">Quiz *</label>
+      <select id="q-quiz" class="form-control" required>
+        <option value="">Select quiz</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="q-text">Question Text *</label>
+      <textarea id="q-text" class="form-control" rows="3" placeholder="Enter question text..." required style="resize:vertical;"></textarea>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 1rem;">
+      <div class="form-group">
+        <label for="q-opt-a">Option A *</label>
+        <input type="text" id="q-opt-a" class="form-control" placeholder="Option A" required />
+      </div>
+      <div class="form-group">
+        <label for="q-opt-b">Option B *</label>
+        <input type="text" id="q-opt-b" class="form-control" placeholder="Option B" required />
+      </div>
+      <div class="form-group">
+        <label for="q-opt-c">Option C *</label>
+        <input type="text" id="q-opt-c" class="form-control" placeholder="Option C" required />
+      </div>
+      <div class="form-group">
+        <label for="q-opt-d">Option D *</label>
+        <input type="text" id="q-opt-d" class="form-control" placeholder="Option D" required />
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 1rem;">
+      <div class="form-group">
+        <label for="q-correct">Correct Option *</label>
+        <select id="q-correct" class="form-control" required>
+          <option value="0">A</option><option value="1">B</option>
+          <option value="2">C</option><option value="3">D</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="q-marks">Marks</label>
+        <input type="number" id="q-marks" class="form-control" value="1" min="0" step="0.25" />
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 1rem;">
+      <div class="form-group">
+        <label for="q-cat">Category *</label>
+        <select id="q-cat" class="form-control" required>
+          <option value="">Select category</option>
+          <option>Quantitative Aptitude</option>
+          <option>Logical Reasoning</option>
+          <option>Verbal Ability</option>
+          <option>Technical / General Awareness</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="q-diff">Difficulty</label>
+        <select id="q-diff" class="form-control">
+          <option>Easy</option><option selected>Medium</option><option>Hard</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="q-explain">Explanation <span style="color:var(--text-muted)">(optional)</span></label>
+      <textarea id="q-explain" class="form-control" rows="2" placeholder="Explanation for the correct answer..." style="resize:vertical;"></textarea>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-q-btn" onclick="saveQuestion()">Save Question</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/js/admin.js"></script>
+<script>
+  renderAdminShell();
+
+  let allQuestions = [];
+  let quizMap = {};
+
+  async function loadData() {
+    // Load quizzes for filter
+    const qzRes  = await adminFetch('/api/admin/quizzes');
+    const qzData = await qzRes.json();
+    if (qzData.success) {
+      const qzFilter = document.getElementById('filter-quiz');
+      const qzModal  = document.getElementById('q-quiz');
+      qzData.quizzes.forEach(q => {
+        quizMap[q._id] = q.title;
+        qzFilter.innerHTML += `<option value="${q._id}">${q.title}</option>`;
+        qzModal.innerHTML  += `<option value="${q._id}">${q.title}</option>`;
+      });
+    }
+    await loadQuestions();
+  }
+
+  async function loadQuestions() {
+    const res  = await adminFetch('/api/admin/questions');
+    const data = await res.json();
+    allQuestions = data.success ? data.questions : [];
+    renderTable(allQuestions);
+  }
+
+  function renderTable(questions) {
+    const tbody = document.getElementById('questions-table');
+    document.getElementById('q-count').textContent = `${questions.length} question(s)`;
+
+    if (!questions.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted);">No questions found. Add your first question!</td></tr>';
+      return;
+    }
+
+    const diffColors = { Easy:'badge-green', Medium:'badge-yellow', Hard:'badge-red' };
+    const catColors  = {
+      'Quantitative Aptitude':'badge-blue',
+      'Logical Reasoning':'badge-green',
+      'Verbal Ability':'badge-yellow',
+      'Technical / General Awareness':'badge-purple'
+    };
+
+    tbody.innerHTML = questions.map((q, i) => `
+      <tr>
+        <td style="color:var(--text-muted);">${i+1}</td>
+        <td style="max-width:320px;">
+          <div style="font-size:0.88rem; line-height:1.5; color:var(--text-primary);">
+            ${q.questionText.length > 100 ? q.questionText.slice(0,100)+'…' : q.questionText}
+          </div>
+        </td>
+        <td><span class="badge ${catColors[q.category]||'badge-blue'}" style="font-size:0.72rem;">${q.category}</span></td>
+        <td><span class="badge ${diffColors[q.difficulty]||'badge-yellow'}">${q.difficulty}</span></td>
+        <td><span class="text-green">+${q.marks}</span> / <span class="text-red">−${q.negativeMarks}</span></td>
+        <td style="font-size:0.82rem; color:var(--text-muted);">${quizMap[q.quizId] || q.quizId}</td>
+        <td>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="btn btn-outline btn-sm" onclick="editQuestion('${q._id}')">✏️ Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${q._id}')">🗑</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function filterQuestions() {
+    const search = document.getElementById('search-input').value.toLowerCase();
+    const quiz   = document.getElementById('filter-quiz').value;
+    const cat    = document.getElementById('filter-category').value;
+    const diff   = document.getElementById('filter-diff').value;
+
+    const filtered = allQuestions.filter(q =>
+      (!search || q.questionText.toLowerCase().includes(search)) &&
+      (!quiz   || q.quizId === quiz) &&
+      (!cat    || q.category === cat) &&
+      (!diff   || q.difficulty === diff)
+    );
+    renderTable(filtered);
+  }
+
+  function openModal(q = null) {
+    document.getElementById('modal-title').textContent = q ? 'Edit Question' : 'Add Question';
+    document.getElementById('edit-id').value = q?._id || '';
+    document.getElementById('q-quiz').value     = q?.quizId || '';
+    document.getElementById('q-text').value     = q?.questionText || '';
+    document.getElementById('q-opt-a').value    = q?.options?.[0] || '';
+    document.getElementById('q-opt-b').value    = q?.options?.[1] || '';
+    document.getElementById('q-opt-c').value    = q?.options?.[2] || '';
+    document.getElementById('q-opt-d').value    = q?.options?.[3] || '';
+    document.getElementById('q-correct').value  = String(q?.correctOptionIndex ?? 0);
+    document.getElementById('q-marks').value    = q?.marks ?? 1;
+
+    document.getElementById('q-cat').value      = q?.category || '';
+    document.getElementById('q-diff').value     = q?.difficulty || 'Medium';
+    document.getElementById('q-explain').value  = q?.explanation || '';
+    document.getElementById('modal-msg').style.display = 'none';
+    document.getElementById('q-modal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('q-modal').classList.remove('show');
+  }
+
+  async function editQuestion(id) {
+    const res  = await adminFetch('/api/admin/questions/' + id);
+    const data = await res.json();
+    if (data.success) openModal(data.question);
+  }
+
+  async function saveQuestion() {
+    const btn    = document.getElementById('save-q-btn');
+    const editId = document.getElementById('edit-id').value;
+
+    const payload = {
+      quizId:             document.getElementById('q-quiz').value,
+      questionText:       document.getElementById('q-text').value.trim(),
+      options: [
+        document.getElementById('q-opt-a').value.trim(),
+        document.getElementById('q-opt-b').value.trim(),
+        document.getElementById('q-opt-c').value.trim(),
+        document.getElementById('q-opt-d').value.trim()
+      ],
+      correctOptionIndex: parseInt(document.getElementById('q-correct').value),
+      marks:              parseFloat(document.getElementById('q-marks').value),
+      negativeMarks:      0,
+      category:           document.getElementById('q-cat').value,
+      difficulty:         document.getElementById('q-diff').value,
+      explanation:        document.getElementById('q-explain').value.trim()
+    };
+
+    if (!payload.quizId || !payload.questionText || !payload.category || payload.options.some(o => !o)) {
+      const msgEl = document.getElementById('modal-msg');
+      msgEl.className = 'alert alert-error';
+      msgEl.textContent = '❌ Please fill all required fields.';
+      msgEl.style.display = 'flex';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+    const method = editId ? 'PUT' : 'POST';
+    const url    = editId ? `/api/admin/questions/${editId}` : '/api/admin/questions';
+
+    const res  = await adminFetch(url, { method, body: JSON.stringify(payload) });
+    const data = await res.json();
+
+    btn.disabled = false;
+    btn.textContent = 'Save Question';
+
+    if (data.success) {
+      closeModal();
+      showToast(editId ? '✅ Question updated!' : '✅ Question added!');
+      await loadQuestions();
+    } else {
+      const msgEl = document.getElementById('modal-msg');
+      msgEl.className = 'alert alert-error';
+      msgEl.textContent = '❌ ' + data.message;
+      msgEl.style.display = 'flex';
+    }
+  }
+
+  async function deleteQuestion(id) {
+    if (!confirm('Delete this question? This cannot be undone.')) return;
+    const res  = await adminFetch('/api/admin/questions/' + id, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) { showToast('🗑 Question deleted.'); await loadQuestions(); }
+    else showToast('❌ ' + data.message, 'error');
+  }
+
+  loadData();
+</script>
+</body>
+</html>

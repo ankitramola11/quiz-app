@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results – IEEE Admin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+  <div id="admin-sidebar-slot"></div>
+
+  <div class="admin-main">
+    <div class="admin-page-header">
+      <div><h1>🏆 Results & Leaderboard</h1><p>All submitted attempts, ranked by score</p></div>
+      <button class="btn btn-success" onclick="exportCSV()">📥 Export CSV</button>
+    </div>
+
+    <div class="toolbar">
+      <select id="sort-by" onchange="loadResults()">
+        <option value="score">Sort by Score (High → Low)</option>
+        <option value="time">Sort by Submission Time</option>
+      </select>
+      <select id="filter-status" onchange="loadResults()">
+        <option value="">All Students</option>
+        <option value="QUALIFIED">Qualified Only</option>
+        <option value="NOT QUALIFIED">Not Qualified</option>
+      </select>
+    </div>
+
+    <p id="r-count" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;"></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Name</th>
+            <th>Course</th>
+            <th>Score</th>
+            <th>%</th>
+            <th>Correct</th>
+            <th>Wrong</th>
+            <th>Skip</th>
+            <th>Status</th>
+            <th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody id="results-table">
+          <tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="/js/admin.js"></script>
+<script>
+  renderAdminShell();
+
+  async function loadResults() {
+    const sortBy = document.getElementById('sort-by').value;
+    const status = document.getElementById('filter-status').value;
+    const params = new URLSearchParams({ sortBy, ...(status ? { status } : {}) });
+
+    const res  = await adminFetch('/api/admin/results?' + params);
+    const data = await res.json();
+
+    const tbody = document.getElementById('results-table');
+    document.getElementById('r-count').textContent = data.success ? `${data.count} result(s)` : '—';
+
+    if (!data.success || !data.results?.length) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:2rem;color:var(--text-muted);">No results yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.results.map((r, i) => `
+      <tr>
+        <td>
+          <span style="font-weight:800; font-size:1rem; color:${i===0?'var(--yellow)':i===1?'var(--text-secondary)':i===2?'#cd7f32':'var(--text-muted)'};">
+            ${i < 3 ? ['🥇','🥈','🥉'][i] : '#' + r.rank}
+          </span>
+        </td>
+        <td><strong>${r.name || '—'}</strong></td>
+
+        <td style="font-size:0.85rem;">${r.course || '—'}</td>
+        <td><strong style="font-size:1.05rem;">${r.score?.toFixed(2) ?? '—'}</strong>
+          <span style="color:var(--text-muted); font-size:0.8rem;">/ ${r.totalMarks}</span>
+        </td>
+        <td><strong>${r.percentage?.toFixed(2) ?? '—'}%</strong></td>
+        <td class="text-green"><strong>${r.correct ?? '—'}</strong></td>
+        <td class="text-red"><strong>${r.incorrect ?? '—'}</strong></td>
+        <td style="color:var(--yellow);">${r.unattempted ?? '—'}</td>
+        <td><span class="badge ${r.resultStatus === 'QUALIFIED' ? 'badge-green' : 'badge-red'}">${r.resultStatus || '—'}</span></td>
+        <td style="font-size:0.82rem; color:var(--text-muted);">${fmtDate(r.submittedAt)}</td>
+      </tr>
+    `).join('');
+  }
+
+  async function exportCSV() {
+    const btn = document.querySelector('[onclick="exportCSV()"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Exporting...';
+
+    try {
+      const res = await fetch('/api/admin/results/export', {
+        headers: { Authorization: 'Bearer ' + ADMIN_TOKEN }
+      });
+      if (!res.ok) throw new Error('Export failed');
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `ieee-quiz-results-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('📥 Results exported to CSV!');
+    } catch {
+      showToast('❌ Export failed.', 'error');
+    }
+
+    btn.disabled = false;
+    btn.textContent = '📥 Export CSV';
+  }
+
+  loadResults();
+</script>
+</body>
+</html>

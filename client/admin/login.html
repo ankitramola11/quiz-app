@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login – IEEE SRHU Student Branch</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card" style="max-width:420px;">
+    <div class="auth-header">
+      <img src="/images/logo.png" class="auth-logo" alt="IEEE SRHU Logo" />
+      <h1>Admin Portal</h1>
+      <p>IEEE SRHU Student Branch – Coordinator Access</p>
+    </div>
+    <div id="msg-box" style="display:none;"></div>
+    <form id="admin-login-form">
+      <div class="form-group">
+        <label for="admin-email">Admin Email</label>
+        <input type="email" id="admin-email" class="form-control" placeholder="admin@ieee-srhu.org" required value="admin@ieee-srhu.org"/>
+      </div>
+      <div class="form-group">
+        <label for="admin-pw">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="admin-pw" class="form-control" placeholder="Admin password" required value="Admin@1234"/>
+          <button type="button" class="toggle-pw" onclick="togglePw()">👁️</button>
+        </div>
+      </div>
+      <button type="submit" id="admin-login-btn" class="btn btn-primary btn-auth"
+        style="background:var(--blue);">
+        Sign In as Admin
+      </button>
+    </form>
+    <div class="auth-footer">
+      <a href="/login.html">← Student Login</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  const stored = JSON.parse(localStorage.getItem('user') || 'null');
+  if (stored?.role === 'admin') window.location.href = '/admin/dashboard.html';
+
+  function togglePw() {
+    const inp = document.getElementById('admin-pw');
+    const btn = document.querySelector('.toggle-pw');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
+  }
+
+  function showMsg(type, text) {
+    const box = document.getElementById('msg-box');
+    box.className = `alert alert-${type}`;
+    box.textContent = text;
+    box.style.display = 'flex';
+  }
+
+  document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('admin-login-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+
+    try {
+      const res  = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('admin-email').value.trim(),
+          password: document.getElementById('admin-pw').value
+        })
+      });
+      const data = await res.json();
+
+      if (data.success && data.user.role === 'admin') {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        window.location.href = '/admin/dashboard.html';
+      } else if (data.success && data.user.role !== 'admin') {
+        showMsg('error', '❌ Access denied. Admin credentials required.');
+        btn.disabled = false;
+        btn.textContent = 'Sign In as Admin';
+      } else {
+        showMsg('error', '❌ ' + data.message);
+        btn.disabled = false;
+        btn.textContent = 'Sign In as Admin';
+      }
+    } catch {
+      showMsg('error', '❌ Connection error.');
+      btn.disabled = false;
+      btn.textContent = 'Sign In as Admin';
+    }
+  });
+</script>
+</body>
+</html>

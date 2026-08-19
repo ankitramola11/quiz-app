@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quizzes – IEEE Admin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+  <div id="admin-sidebar-slot"></div>
+
+  <div class="admin-main">
+    <div class="admin-page-header">
+      <div><h1>📝 Quiz Management</h1><p>Create and configure aptitude quizzes</p></div>
+      <div style="display: flex; gap: 1rem;">
+        <button class="btn btn-outline" onclick="openPdfModal()">🪄 Generate from PDF</button>
+        <button class="btn btn-primary" onclick="openModal()">➕ Create Quiz</button>
+      </div>
+    </div>
+
+    <div id="quizzes-grid" class="features-grid"></div>
+  </div>
+</div>
+
+<!-- PDF Modal -->
+<div class="admin-modal-overlay" id="pdf-modal">
+  <div class="admin-modal">
+    <h3 id="pdf-modal-title">🪄 Generate Quiz from PDF</h3>
+    <div id="pdf-modal-msg" style="display:none; margin-bottom:1rem;"></div>
+    
+    <div class="form-group">
+      <label for="pdf-file">Select PDF File *</label>
+      <input type="file" id="pdf-file" class="form-control" accept=".pdf" required />
+    </div>
+
+    <div class="form-group">
+      <label for="pdf-title">Quiz Title *</label>
+      <input type="text" id="pdf-title" class="form-control" placeholder="e.g. AI Generated Quiz 1" required />
+    </div>
+    
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 1rem;">
+      <div class="form-group">
+        <label for="pdf-duration">Duration (min) *</label>
+        <input type="number" id="pdf-duration" class="form-control" value="20" min="1" required />
+      </div>
+      <div class="form-group">
+        <label for="pdf-total">Total Marks *</label>
+        <input type="number" id="pdf-total" class="form-control" value="30" min="0" required />
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closePdfModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-pdf-btn" onclick="generateFromPdf()">✨ Generate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="admin-modal-overlay" id="quiz-modal">
+  <div class="admin-modal">
+    <h3 id="quiz-modal-title">Create Quiz</h3>
+    <div id="quiz-modal-msg" style="display:none; margin-bottom:1rem;"></div>
+    <input type="hidden" id="quiz-edit-id" />
+
+    <div class="form-group">
+      <label for="qz-title">Quiz Title *</label>
+      <input type="text" id="qz-title" class="form-control" placeholder="e.g. IEEE SRHU Student Branch Aptitude Round 2026" required />
+    </div>
+    <div class="form-group">
+      <label for="qz-desc">Description</label>
+      <textarea id="qz-desc" class="form-control" rows="2" placeholder="Brief description..." style="resize:vertical;"></textarea>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0 1rem;">
+      <div class="form-group">
+        <label for="qz-duration">Duration (min) *</label>
+        <input type="number" id="qz-duration" class="form-control" value="20" min="1" required />
+      </div>
+      <div class="form-group">
+        <label for="qz-total">Total Marks *</label>
+        <input type="number" id="qz-total" class="form-control" value="30" min="0" required />
+      </div>
+      <div class="form-group">
+        <label for="qz-mpq">Marks/Question</label>
+        <input type="number" id="qz-mpq" class="form-control" value="1" min="0" step="0.25" />
+      </div>
+
+      <div class="form-group">
+        <label for="qz-pass">Passing % *</label>
+        <input type="number" id="qz-pass" class="form-control" value="50" min="0" max="100" required />
+      </div>
+      <div class="form-group">
+        <label for="qz-max">Max Attempts</label>
+        <input type="number" id="qz-max" class="form-control" value="1" min="1" />
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:0 1rem;">
+      <div class="form-group">
+        <label for="qz-start">Start Date/Time</label>
+        <input type="datetime-local" id="qz-start" class="form-control" />
+      </div>
+      <div class="form-group">
+        <label for="qz-end">End Date/Time</label>
+        <input type="datetime-local" id="qz-end" class="form-control" />
+      </div>
+    </div>
+
+    <div style="display:flex; gap:2rem; margin-bottom:1rem;">
+      <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; cursor:pointer;">
+        <input type="checkbox" id="qz-rand-q" checked style="accent-color:var(--blue);" />
+        <span>Randomize Questions</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.9rem; cursor:pointer;">
+        <input type="checkbox" id="qz-active" style="accent-color:var(--blue);" />
+        <span>Active (live to students)</span>
+      </label>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="save-quiz-btn" onclick="saveQuiz()">Save Quiz</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="/js/admin.js"></script>
+<script>
+  renderAdminShell();
+  let allQuizzes = [];
+
+  async function loadQuizzes() {
+    const res  = await adminFetch('/api/admin/quizzes');
+    const data = await res.json();
+    allQuizzes = data.success ? data.quizzes : [];
+    renderCards(allQuizzes);
+  }
+
+  function renderCards(quizzes) {
+    const grid = document.getElementById('quizzes-grid');
+    if (!quizzes.length) {
+      grid.innerHTML = '<p style="color:var(--text-muted);">No quizzes yet. Create your first quiz!</p>';
+      return;
+    }
+    grid.innerHTML = quizzes.map(q => `
+      <div class="feature-card">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1rem;">
+          <div>
+            <h3 style="margin-bottom:0.25rem;">${q.title}</h3>
+            <p style="font-size:0.82rem;">${q.description || 'No description'}</p>
+          </div>
+          <span class="badge ${q.isActive ? 'badge-green' : 'badge-red'}" style="flex-shrink:0;">
+            ${q.isActive ? '🟢 Active' : '🔴 Inactive'}
+          </span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.5rem; margin-bottom:1.25rem;">
+          <div style="background:var(--bg-secondary); border-radius:8px; padding:0.6rem; text-align:center;">
+            <div style="font-weight:800; font-size:1.1rem;">${q.durationMinutes}m</div>
+            <div style="font-size:0.7rem; color:var(--text-muted);">Duration</div>
+          </div>
+          <div style="background:var(--bg-secondary); border-radius:8px; padding:0.6rem; text-align:center;">
+            <div style="font-weight:800; font-size:1.1rem;">${q.questionCount ?? '—'}</div>
+            <div style="font-size:0.7rem; color:var(--text-muted);">Questions</div>
+          </div>
+          <div style="background:var(--bg-secondary); border-radius:8px; padding:0.6rem; text-align:center;">
+            <div style="font-weight:800; font-size:1.1rem;">${q.passingPercentage}%</div>
+            <div style="font-size:0.7rem; color:var(--text-muted);">Pass Mark</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="editQuiz('${q._id}')">✏️ Edit</button>
+          <button class="btn btn-sm ${q.isActive ? 'btn-danger' : 'btn-success'}" 
+                  onclick="toggleActive('${q._id}', ${!q.isActive})">
+            ${q.isActive ? '⏸ Deactivate' : '▶ Activate'}
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="deleteQuiz('${q._id}')">🗑 Delete</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function openModal(quiz = null) {
+    document.getElementById('quiz-modal-title').textContent = quiz ? 'Edit Quiz' : 'Create Quiz';
+    document.getElementById('quiz-edit-id').value     = quiz?._id || '';
+    document.getElementById('qz-title').value         = quiz?.title || '';
+    document.getElementById('qz-desc').value          = quiz?.description || '';
+    document.getElementById('qz-duration').value      = quiz?.durationMinutes ?? 20;
+    document.getElementById('qz-total').value         = quiz?.totalMarks ?? 30;
+    document.getElementById('qz-mpq').value           = quiz?.marksPerQuestion ?? 1;
+
+    document.getElementById('qz-pass').value          = quiz?.passingPercentage ?? 50;
+    document.getElementById('qz-max').value           = quiz?.maxAttempts ?? 1;
+    document.getElementById('qz-rand-q').checked      = quiz?.randomizeQuestions ?? true;
+    document.getElementById('qz-active').checked      = quiz?.isActive ?? false;
+    document.getElementById('qz-start').value         = quiz?.startAt ? new Date(quiz.startAt).toISOString().slice(0,16) : '';
+    document.getElementById('qz-end').value           = quiz?.endAt   ? new Date(quiz.endAt).toISOString().slice(0,16) : '';
+    document.getElementById('quiz-modal-msg').style.display = 'none';
+    document.getElementById('quiz-modal').classList.add('show');
+  }
+
+  function closeModal() {
+    document.getElementById('quiz-modal').classList.remove('show');
+  }
+
+  async function editQuiz(id) {
+    const q = allQuizzes.find(x => x._id === id);
+    if (q) openModal(q);
+  }
+
+  async function saveQuiz() {
+    const btn    = document.getElementById('save-quiz-btn');
+    const editId = document.getElementById('quiz-edit-id').value;
+
+    const payload = {
+      title:              document.getElementById('qz-title').value.trim(),
+      description:        document.getElementById('qz-desc').value.trim(),
+      durationMinutes:    parseInt(document.getElementById('qz-duration').value),
+      totalMarks:         parseInt(document.getElementById('qz-total').value),
+      marksPerQuestion:   parseFloat(document.getElementById('qz-mpq').value),
+      negativeMarks:      0,
+      passingPercentage:  parseInt(document.getElementById('qz-pass').value),
+      maxAttempts:        parseInt(document.getElementById('qz-max').value),
+      randomizeQuestions: document.getElementById('qz-rand-q').checked,
+      isActive:           document.getElementById('qz-active').checked,
+      startAt: document.getElementById('qz-start').value || null,
+      endAt:   document.getElementById('qz-end').value   || null
+    };
+
+    if (!payload.title) {
+      const m = document.getElementById('quiz-modal-msg');
+      m.className = 'alert alert-error'; m.textContent = '❌ Quiz title is required.'; m.style.display='flex';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Saving...';
+
+    const res  = await adminFetch(editId ? `/api/admin/quizzes/${editId}` : '/api/admin/quizzes',
+      { method: editId ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+    const data = await res.json();
+    btn.disabled = false; btn.textContent = 'Save Quiz';
+
+    if (data.success) { closeModal(); showToast('✅ Quiz saved!'); await loadQuizzes(); }
+    else { const m = document.getElementById('quiz-modal-msg'); m.className='alert alert-error'; m.textContent='❌ '+data.message; m.style.display='flex'; }
+  }
+
+  async function toggleActive(id, active) {
+    const res  = await adminFetch(`/api/admin/quizzes/${id}`, { method:'PUT', body: JSON.stringify({ isActive: active }) });
+    const data = await res.json();
+    if (data.success) { showToast(active ? '▶ Quiz activated!' : '⏸ Quiz deactivated!'); await loadQuizzes(); }
+  }
+
+  async function deleteQuiz(id) {
+    if (!confirm('Delete this quiz and ALL its questions and attempts? This cannot be undone.')) return;
+    const res  = await adminFetch(`/api/admin/quizzes/${id}`, { method:'DELETE' });
+    const data = await res.json();
+    if (data.success) { showToast('🗑 Quiz deleted.'); await loadQuizzes(); }
+    else showToast('❌ ' + data.message, 'error');
+  }
+
+  function openPdfModal() {
+    document.getElementById('pdf-file').value = '';
+    document.getElementById('pdf-title').value = '';
+    document.getElementById('pdf-modal-msg').style.display = 'none';
+    document.getElementById('pdf-modal').classList.add('show');
+  }
+
+  function closePdfModal() {
+    document.getElementById('pdf-modal').classList.remove('show');
+  }
+
+  async function generateFromPdf() {
+    const btn = document.getElementById('save-pdf-btn');
+    const fileInput = document.getElementById('pdf-file');
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+      const m = document.getElementById('pdf-modal-msg');
+      m.className = 'alert alert-error'; m.textContent = '❌ Please select a PDF file.'; m.style.display='flex';
+      return;
+    }
+
+    const title = document.getElementById('pdf-title').value.trim();
+    if (!title) {
+      const m = document.getElementById('pdf-modal-msg');
+      m.className = 'alert alert-error'; m.textContent = '❌ Quiz title is required.'; m.style.display='flex';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('pdfFile', fileInput.files[0]);
+    formData.append('title', title);
+    formData.append('durationMinutes', document.getElementById('pdf-duration').value);
+    formData.append('totalMarks', document.getElementById('pdf-total').value);
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> AI Generating... (Wait)';
+
+    try {
+      const res = await fetch('/api/admin/quizzes/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + ADMIN_TOKEN
+        },
+        body: formData
+      });
+      
+      const data = await res.json();
+      btn.disabled = false; btn.innerHTML = '✨ Generate';
+
+      if (data.success) { 
+        closePdfModal(); 
+        showToast('✅ Quiz generated successfully!'); 
+        await loadQuizzes(); 
+      }
+      else { 
+        const m = document.getElementById('pdf-modal-msg'); 
+        m.className='alert alert-error'; 
+        m.textContent='❌ ' + data.message; 
+        m.style.display='flex'; 
+      }
+    } catch (error) {
+      btn.disabled = false; btn.innerHTML = '✨ Generate';
+      const m = document.getElementById('pdf-modal-msg'); 
+      m.className='alert alert-error'; 
+      m.textContent='❌ Connection error'; 
+      m.style.display='flex';
+    }
+  }
+
+  loadQuizzes();
+</script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – IEEE Admin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+  <div id="admin-sidebar-slot"></div>
+
+  <div class="admin-main">
+    <div class="admin-page-header">
+      <div>
+        <h1>📊 Dashboard</h1>
+        <p>IEEE SRHU Student Branch – Membership Drive Overview</p>
+      </div>
+      <span id="dash-date" style="font-size:0.85rem; color:var(--text-muted);"></span>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-cards" id="stats-cards">
+      <div class="stat-card blue">
+        <div class="sc-icon">👥</div>
+        <div class="sc-val" id="sc-participants">—</div>
+        <div class="sc-lbl">Total Participants</div>
+      </div>
+      <div class="stat-card green">
+        <div class="sc-icon">✅</div>
+        <div class="sc-val" id="sc-completed">—</div>
+        <div class="sc-lbl">Completed Tests</div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="sc-icon">📋</div>
+        <div class="sc-val" id="sc-attempts">—</div>
+        <div class="sc-lbl">Total Attempts</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="sc-icon">📈</div>
+        <div class="sc-val" id="sc-avg">—</div>
+        <div class="sc-lbl">Avg Score %</div>
+      </div>
+      <div class="stat-card cyan">
+        <div class="sc-icon">🏆</div>
+        <div class="sc-val" id="sc-high">—</div>
+        <div class="sc-lbl">Highest Score</div>
+      </div>
+      <div class="stat-card red">
+        <div class="sc-icon">🎯</div>
+        <div class="sc-val" id="sc-pass">—</div>
+        <div class="sc-lbl">Pass Rate %</div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:2rem;">
+      <a href="/admin/questions.html" class="btn btn-primary">➕ Add Question</a>
+      <a href="/admin/quizzes.html"   class="btn btn-outline">📝 Manage Quiz</a>
+      <a href="/admin/results.html"   class="btn btn-outline">📥 Export Results</a>
+    </div>
+
+    <!-- Recent Submissions -->
+    <div class="card" style="padding:0; overflow:hidden;">
+      <div style="padding:1.25rem 1.5rem; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="font-size:1rem;">Recent Submissions</h3>
+        <a href="/admin/results.html" style="font-size:0.85rem; color:var(--blue-light);">View All →</a>
+      </div>
+      <div class="table-wrap" style="border:none; border-radius:0;">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Score</th>
+              <th>%</th>
+              <th>Status</th>
+              <th>Submitted</th>
+            </tr>
+          </thead>
+          <tbody id="recent-table">
+            <tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="/js/admin.js"></script>
+<script>
+  renderAdminShell();
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('en-IN', { dateStyle: 'full' });
+
+  async function loadDashboard() {
+    try {
+      const res  = await adminFetch('/api/admin/dashboard');
+      const data = await res.json();
+      if (!data.success) return;
+
+      const s = data.stats;
+      document.getElementById('sc-participants').textContent = s.totalParticipants;
+      document.getElementById('sc-completed').textContent   = s.completedAttempts;
+      document.getElementById('sc-attempts').textContent    = s.totalAttempts;
+      document.getElementById('sc-avg').textContent         = s.avgScore + '%';
+      document.getElementById('sc-high').textContent        = s.highestScore;
+      document.getElementById('sc-pass').textContent        = s.passPercentage + '%';
+
+      const tbody = document.getElementById('recent-table');
+      if (!data.recentSubmissions?.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">No submissions yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.recentSubmissions.map(a => `
+        <tr>
+          <td>${a.userId?.name || '—'}</td>
+
+          <td><strong>${a.score?.toFixed(2) ?? '—'}</strong></td>
+          <td>${a.percentage?.toFixed(2) ?? '—'}%</td>
+          <td><span class="badge ${a.resultStatus === 'QUALIFIED' ? 'badge-green' : 'badge-red'}">${a.resultStatus || '—'}</span></td>
+          <td style="color:var(--text-muted);">${fmtDate(a.submittedAt)}</td>
+        </tr>
+      `).join('');
+    } catch {
+      showToast('Failed to load dashboard data.', 'error');
+    }
+  }
+
+  loadDashboard();
+</script>
+</body>
+</html>

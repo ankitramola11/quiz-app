@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz – IEEE SRHU Student Branch</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/quiz.css" />
+</head>
+<body>
+
+<!-- ─── Navbar ─────────────────────────────────────────────── -->
+<nav class="navbar">
+  <div class="container" style="max-width:100%; padding:0 1.5rem;">
+    <a href="/" class="navbar-brand">
+      <img src="/images/logo.png" class="logo-icon" alt="IEEE SRHU Logo" />
+      <div><span class="hide-mobile">IEEE SRHU Student Branch</span><small class="hide-mobile">Aptitude Quiz</small></div>
+    </a>
+    <div id="quiz-title-nav" style="font-size:0.9rem; font-weight:600; color:var(--text-secondary);"></div>
+    <div class="timer-box" id="timer-box">
+      <span class="timer-icon">⏱️</span>
+      <span id="timer-display">--:--</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Main Layout ────────────────────────────────────────── -->
+<div class="quiz-layout">
+
+  <!-- ─── Question Panel ─────────────────────────────────── -->
+  <div class="quiz-main">
+    <div class="quiz-header">
+      <h2>Question <strong id="q-num">1</strong> of <strong id="q-total">—</strong></h2>
+      <div id="q-category-badge" class="badge badge-blue" style="display:none;"></div>
+    </div>
+
+    <div class="progress-bar-wrap">
+      <div class="progress-label">
+        <span id="progress-text">0 answered</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Question -->
+    <div class="question-card" id="question-card">
+      <div class="question-meta">
+        <span class="q-number" id="q-number-badge">Q1</span>
+        <span class="badge badge-blue" id="diff-badge" style="display:none;"></span>
+      </div>
+      <p class="question-text" id="question-text">Loading questions...</p>
+      <ul class="options-list" id="options-list"></ul>
+    </div>
+
+    <!-- Navigation -->
+    <div class="quiz-nav">
+      <div class="nav-left">
+        <button class="btn btn-outline" id="btn-prev" onclick="navigate(-1)">← Previous</button>
+        <button class="btn btn-outline btn-sm" id="btn-clear" onclick="clearAnswer()">🗑 Clear</button>
+        <button class="btn btn-sm" id="btn-review" onclick="toggleReview()"
+          style="background:rgba(245,158,11,0.15); color:var(--yellow); border:1.5px solid rgba(245,158,11,0.4);">
+          ★ Mark Review
+        </button>
+      </div>
+      <div class="nav-right">
+        <button class="btn btn-primary" id="btn-next" onclick="navigate(1)">Save & Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Sidebar ────────────────────────────────────────── -->
+  <div class="quiz-sidebar">
+
+    <!-- Student Info -->
+    <div class="sidebar-student">
+      <div class="s-name" id="side-name">—</div>
+      <div class="s-meta" id="side-meta">—</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="palette-legend-mini">
+      <h4>Legend</h4>
+      <div class="pal-row"><div class="pal-sq unvisited"></div> Not Visited</div>
+      <div class="pal-row"><div class="pal-sq answered"></div> Answered</div>
+      <div class="pal-row"><div class="pal-sq not-ans"></div> Not Answered</div>
+      <div class="pal-row"><div class="pal-sq review"></div> Marked for Review</div>
+      <div class="pal-row"><div class="pal-sq ans-review"></div> Answered + Review</div>
+    </div>
+
+    <!-- Palette -->
+    <div class="palette-wrap">
+      <h4>Questions</h4>
+      <div class="palette-grid" id="palette-grid"></div>
+    </div>
+
+    <!-- Summary + Submit -->
+    <div class="submit-area">
+      <div class="summary" id="sidebar-summary">
+        <div class="summary-row"><span>Answered</span>    <span id="sum-ans">0</span></div>
+        <div class="summary-row"><span>Not Answered</span><span id="sum-not">0</span></div>
+        <div class="summary-row"><span>Reviewed</span>    <span id="sum-rev">0</span></div>
+        <div class="summary-row"><span>Not Visited</span> <span id="sum-nv">0</span></div>
+      </div>
+      <button class="btn btn-success" style="width:100%;" onclick="openSubmitModal()">
+        ✅ Submit Test
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ─── Submit Confirmation Modal ─────────────────────────── -->
+<div class="modal-overlay" id="submit-modal">
+  <div class="modal-box">
+    <div class="modal-icon">📝</div>
+    <h3>Submit Test?</h3>
+    <p>Once submitted, you cannot change your answers.</p>
+    <div class="modal-stats" id="modal-stats"></div>
+    <div id="modal-alert" style="margin-bottom:1rem;"></div>
+    <div class="modal-buttons">
+      <button class="btn btn-outline" onclick="closeSubmitModal()">Cancel</button>
+      <button class="btn btn-success" id="confirm-submit-btn" onclick="submitQuiz()">Submit Now</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/quiz.js"></script>
+</body>
+</html>

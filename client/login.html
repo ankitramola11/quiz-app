@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login – IEEE SRHU Student Branch Aptitude Quiz</title>
+  <meta name="description" content="Sign in to the IEEE SRHU Student Branch Aptitude Quiz platform." />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/auth.css" />
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container">
+    <a href="/" class="navbar-brand">
+      <img src="/images/logo.png" class="logo-icon" alt="IEEE SRHU Logo" />
+      <div><span>IEEE SRHU Student Branch</span><small>Aptitude Quiz</small></div>
+    </a>
+    <div class="navbar-links">
+      <span style="font-size:0.875rem; color: var(--text-secondary);">New here?</span>
+      <a href="/register.html" class="btn btn-primary btn-sm">Register</a>
+    </div>
+  </div>
+</nav>
+
+<div class="auth-page">
+  <div class="auth-card" style="max-width:440px;">
+    <div class="auth-header">
+      <img src="/images/logo.png" class="auth-logo" alt="IEEE SRHU Logo" />
+      <h1>Welcome Back</h1>
+      <p>Sign in to access your quiz dashboard</p>
+    </div>
+
+    <div id="msg-box" style="display:none;"></div>
+
+    <form id="login-form" autocomplete="off">
+      <div class="form-group">
+        <label for="login-email">Email Address</label>
+        <input type="email" id="login-email" class="form-control" placeholder="your@email.com" required />
+      </div>
+
+      <div class="form-group">
+        <label for="login-password">Password</label>
+        <div class="input-wrap">
+          <input type="password" id="login-password" class="form-control" placeholder="Enter your password" required />
+          <button type="button" class="toggle-pw" onclick="togglePw()">👁️</button>
+        </div>
+      </div>
+
+      <button type="submit" id="login-btn" class="btn btn-primary btn-auth">
+        Sign In
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Don't have an account? <a href="/register.html">Register here</a>
+    </div>
+
+    <hr class="divider" />
+    <div style="text-align:center;">
+      <a href="/admin/login.html" style="font-size:0.82rem; color:var(--text-muted);">🔒 Admin Panel Login →</a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  if (localStorage.getItem('token')) {
+    const u = JSON.parse(localStorage.getItem('user') || '{}');
+    window.location.href = u.role === 'admin' ? '/admin/dashboard.html' : '/instructions.html';
+  }
+
+  function togglePw() {
+    const inp = document.getElementById('login-password');
+    const btn = document.querySelector('.toggle-pw');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
+  }
+
+  function showMsg(type, text) {
+    const box = document.getElementById('msg-box');
+    box.className = `alert alert-${type}`;
+    box.textContent = text;
+    box.style.display = 'flex';
+  }
+
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+
+    const email    = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    try {
+      const res  = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        showMsg('success', '✅ Login successful! Redirecting...');
+        setTimeout(() => {
+          window.location.href = data.user.role === 'admin' ? '/admin/dashboard.html' : '/instructions.html';
+        }, 800);
+      } else {
+        showMsg('error', '❌ ' + data.message);
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      }
+    } catch {
+      showMsg('error', '❌ Unable to connect. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Sign In';
+    }
+  });
+</script>
+
+</body>
+</html>

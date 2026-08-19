@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IEEE SRHU Student Branch – Aptitude Quiz</title>
+  <meta name="description" content="IEEE SRHU Student Branch Aptitude Quiz – Online MCQ assessment platform for IEEE membership drives at Swami Rama Himalayan University." />
+  <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    /* ─── Hero ─────────────────────────────────────────────── */
+    .hero {
+      min-height: 80vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+      padding: 8rem 0 4rem;
+    }
+
+    /* Animated background */
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(0, 98, 155, 0.3) 0%, transparent 40%),
+                  radial-gradient(circle at bottom left, rgba(6, 182, 212, 0.15) 0%, transparent 40%);
+      z-index: -2;
+      animation: pulseGlow 6s infinite alternate;
+    }
+    
+    .hero-bg-scroll {
+      position: absolute;
+      top: 55%;
+      left: 0;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      font-size: clamp(6rem, 15vw, 15rem);
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.03);
+      pointer-events: none;
+      z-index: -1;
+      display: flex;
+      animation: scrollText 40s linear infinite;
+    }
+    @keyframes scrollText {
+      0% { transform: translate(0, -50%); }
+      100% { transform: translate(-50%, -50%); }
+    }
+    
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 700px;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(37,99,235,0.1);
+      border: 1px solid rgba(37,99,235,0.2);
+      border-radius: 50px;
+      padding: 0.4rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--blue-dark);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 { margin-bottom: 1.25rem; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; color: #ffffff; line-height: 1.1; }
+    .hero h1 .gradient-text {
+      color: var(--blue);
+    }
+    .hero p { font-size: 1.1rem; margin-bottom: 2rem; max-width: 520px; }
+    .hero-cta { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+    /* ─── Stats Strip ───────────────────────────────────────── */
+    .stats-strip {
+      position: relative;
+      z-index: 2;
+      margin-top: 4rem;
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .stat-item { display: flex; flex-direction: column; gap: 0.2rem; }
+    .stat-item .stat-val { font-size: 1.75rem; font-weight: 800; color: var(--text-primary); }
+    .stat-item .stat-lbl { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+
+    /* ─── Features ──────────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--border);
+      opacity: 0;
+      transition: var(--transition);
+    }
+    .feature-card:hover { border-color: var(--blue); transform: translateY(-4px); box-shadow: var(--shadow-card); }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 1.25rem;
+    }
+    .feature-icon.blue   { background: rgba(0,98,155,0.2); color: #38bdf8; }
+    .feature-icon.green  { background: rgba(16,185,129,0.2); color: #34d399; }
+    .feature-icon.yellow { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .feature-icon.purple { background: rgba(147,51,234,0.2); color: #c084fc; }
+    .feature-icon.cyan   { background: rgba(6,182,212,0.2); color: #22d3ee; }
+    .feature-icon.red    { background: rgba(239,68,68,0.2); color: #f87171; }
+    .feature-card h3 { margin-bottom: 0.6rem; font-size: 1.1rem; color: #ffffff; }
+    .feature-card p  { font-size: 0.95rem; color: #94a3b8; }
+
+    /* ─── How it Works ──────────────────────────────────────── */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      margin-top: 3rem;
+      position: relative;
+    }
+    .step-card { text-align: center; }
+    .step-number {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #eff6ff;
+      color: var(--blue);
+      font-size: 1.3rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.25rem;
+      box-shadow: 0 4px 20px rgba(59,130,246,0.35);
+    }
+    .step-card h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+    .step-card p  { font-size: 0.88rem; }
+
+    /* ─── CTA Banner ────────────────────────────────────────── */
+    .cta-banner {
+      background: var(--blue);
+      color: #fff;
+      border: 1px solid rgba(59,130,246,0.25);
+      border-radius: var(--radius-xl);
+      padding: 4rem 3rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-banner::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .cta-banner h2 { margin-bottom: 1rem; color: #fff; }
+    .cta-banner p  { max-width: 600px; margin: 0 auto 2rem; color: #e0f2fe; }
+    .cta-banner .hero-cta { justify-content: center; }
+
+    /* ─── Footer ────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem 0;
+      text-align: center;
+    }
+    footer p { font-size: 0.85rem; color: var(--text-muted); }
+    footer strong { color: var(--blue-light); }
+
+    /* ─── Floating orb 2 ────────────────────────────────────── */
+    .orb-2 {
+      position: absolute;
+      bottom: -20%;
+      right: -10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(56,189,248,0.07) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    @media (max-width: 768px) {
+      .stats-strip { gap: 1.5rem; }
+      .cta-banner { padding: 2.5rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Navbar ─────────────────────────────────────────────── -->
+<nav class="navbar">
+  <div class="container">
+    <a href="/" class="navbar-brand">
+      <img src="/images/logo.png" class="logo-icon" alt="IEEE SRHU Logo" />
+      <div>
+        <span>IEEE SRHU Student Branch</span>
+        <small>Aptitude Quiz Platform</small>
+      </div>
+    </a>
+    <div class="navbar-links">
+      <a href="/login.html" id="nav-login" class="hide-mobile">Login</a>
+      <a href="/register.html" class="btn btn-primary btn-sm pulse-btn">Register</a>
+      <a href="/admin/login.html" class="btn btn-outline btn-sm hide-mobile">Admin</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Hero ───────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg-scroll">
+    <span>IEEE SRHU Student Branch &nbsp;•&nbsp; IEEE SRHU Student Branch &nbsp;•&nbsp; IEEE SRHU Student Branch &nbsp;•&nbsp; IEEE SRHU Student Branch &nbsp;•&nbsp;</span>
+  </div>
+  <div class="container">
+    <div class="hero-content">
+      <div class="hero-eyebrow">IEEE Membership Drive 2026</div>
+      <h1>
+        Aptitude Quiz<br/>
+        <span class="gradient-text">Powered by Innovation</span>
+      </h1>
+      <p>
+        Test your skills in Quantitative Aptitude, Logical Reasoning, Verbal Ability,
+        and Technical Awareness. Join IEEE SRHU Student Branch and be part of something bigger.
+      </p>
+      <div class="hero-cta">
+        <a href="/register.html" class="btn btn-primary btn-lg" id="hero-register-btn">
+          🚀 Register Now
+        </a>
+        <a href="/login.html" class="btn btn-outline btn-lg" id="hero-login-btn">
+          Sign In
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Features ────────────────────────────────────────────── -->
+<section class="section" style="background: var(--bg-secondary);">
+  <div class="container">
+    <div class="section-title text-center">
+      <h2>Everything You Need for a <span class="text-blue">Fair Assessment</span></h2>
+      <p>Built specifically for IEEE membership drives — simple, secure, and automated.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon blue">⏱️</div>
+        <h3>Live Countdown Timer</h3>
+        <p>Server-validated timer that continues even after page refresh. Auto-submits when time ends.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon green">📊</div>
+        <h3>Instant Evaluation</h3>
+        <p>Scores calculated server-side with negative marking. Results available immediately after submission.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon yellow">🧩</div>
+        <h3>Smart Navigation</h3>
+        <p>Move between questions freely. Visual palette shows answered, skipped, and review-marked questions.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon purple">🔒</div>
+        <h3>Secure by Design</h3>
+        <p>Answer keys never sent to the browser. JWT authentication. Server-side score calculation only.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon cyan">🎯</div>
+        <h3>4 Quiz Sections</h3>
+        <p>Quantitative Aptitude, Logical Reasoning, Verbal Ability, and Technical Awareness.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon red">📋</div>
+        <h3>Admin Dashboard</h3>
+        <p>Manage questions, configure quizzes, view rankings, and export results to CSV — all in one place.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How It Works ─────────────────────────────────────────── -->
+<section class="section">
+  <div class="container">
+    <div class="section-title text-center">
+      <h2>How It <span class="text-blue">Works</span></h2>
+      <p>Simple 5-step process from registration to results.</p>
+    </div>
+    <div class="steps">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3>Register</h3>
+        <p>Fill in your details and create your account in under a minute.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3>Read Instructions</h3>
+        <p>Understand the quiz rules, marking scheme, and navigation guide.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3>Attempt Quiz</h3>
+        <p>Answer 30 MCQs within the time limit. Navigate freely between questions.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3>Submit</h3>
+        <p>Submit manually or let the timer auto-submit. Evaluation is instant.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">5</div>
+        <h3>View Result</h3>
+        <p>See your score, rank, and qualification status immediately.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CTA Banner ────────────────────────────────────────────── -->
+<section class="section" style="padding-top: 0;">
+  <div class="container">
+    <div class="cta-banner">
+      <h2>Ready to Take the <span class="text-blue">Aptitude Test?</span></h2>
+      <p>Register now and take the first step towards joining IEEE SRHU Student Branch.</p>
+      <div class="hero-cta">
+        <a href="/register.html" class="btn btn-primary btn-lg" id="cta-register-btn">Register for Free →</a>
+        <a href="/login.html" class="btn btn-outline btn-lg" id="cta-login-btn">Already Registered? Sign In</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <p>© 2026 <strong>IEEE SRHU Student Branch</strong> · Swami Rama Himalayan University · All rights reserved.</p>
+    <p style="margin-top:0.4rem;">Built for the IEEE Membership Drive 2026.</p>
+  </div>
+</footer>
+
+<script>
+  // Redirect if already logged in
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  if (token && user) {
+    if (user.role === 'admin') {
+      window.location.href = '/admin/dashboard.html';
+    } else {
+      window.location.href = '/instructions.html';
+    }
+  }
+</script>
+
+</body>
+</html>

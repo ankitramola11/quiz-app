@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Participants – IEEE Admin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+
+<div class="admin-layout">
+  <div id="admin-sidebar-slot"></div>
+
+  <div class="admin-main">
+    <div class="admin-page-header">
+      <div><h1>👥 Participants</h1><p>Registered students and their attempt status</p></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="Search by name, email, or enrollment..." oninput="filterParticipants()" />
+      </div>
+    </div>
+
+    <p id="p-count" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;"></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Course</th>
+            <th>Semester</th>
+            <th>Score</th>
+            <th>Status</th>
+            <th>Registered</th>
+          </tr>
+        </thead>
+        <tbody id="participants-table">
+          <tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script src="/js/admin.js"></script>
+<script>
+  renderAdminShell();
+  let allParticipants = [];
+
+  async function loadParticipants() {
+    const res  = await adminFetch('/api/admin/participants');
+    const data = await res.json();
+    allParticipants = data.success ? data.participants : [];
+    renderTable(allParticipants);
+  }
+
+  function renderTable(list) {
+    const tbody = document.getElementById('participants-table');
+    document.getElementById('p-count').textContent = `${list.length} participant(s)`;
+
+    if (!list.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:2rem;color:var(--text-muted);">No participants registered yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map((p, i) => {
+      const a = p.attempt;
+      return `
+        <tr>
+          <td style="color:var(--text-muted);">${i+1}</td>
+          <td><strong>${p.name}</strong></td>
+          <td style="font-size:0.85rem; color:var(--text-secondary);">${p.email}</td>
+
+          <td>${p.course}</td>
+          <td>Sem ${p.semester}</td>
+          <td>${a ? `<strong>${a.score?.toFixed(2)}</strong>` : '<span style="color:var(--text-muted);">—</span>'}</td>
+          <td>
+            ${a
+              ? `<span class="badge ${a.resultStatus === 'QUALIFIED' ? 'badge-green' : 'badge-red'}">${a.resultStatus}</span>`
+              : '<span class="badge" style="background:rgba(100,116,139,0.15);color:var(--text-muted);">Not Attempted</span>'
+            }
+          </td>
+          <td style="font-size:0.82rem; color:var(--text-muted);">${fmtDate(p.createdAt)}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function filterParticipants() {
+    const s = document.getElementById('search-input').value.toLowerCase();
+    const filtered = allParticipants.filter(p =>
+      p.name.toLowerCase().includes(s) ||
+      p.email.toLowerCase().includes(s) ||
+
+    );
+    renderTable(filtered);
+  }
+
+  loadParticipants();
+</script>
+</body>
+</html>
