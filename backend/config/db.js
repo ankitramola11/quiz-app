@@ -1,31 +1,15 @@
-const mongoose = require('mongoose');
+const { createClient } = require('@supabase/supabase-js');
 
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-const connectDB = async (retries = 5, delay = 5000) => {
-  if (!process.env.MONGODB_URI) {
-    console.error('❌ MONGODB_URI is not set in environment variables. Skipping DB connect.');
-    return;
-  }
+let supabase;
 
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI);
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`❌ MongoDB connection error: ${error.message}`);
-    if (retries > 0) {
-      console.log(`Retrying MongoDB connection in ${delay / 1000}s... (${retries} retries left)`);
-      await sleep(delay);
-      return connectDB(retries - 1, Math.min(delay * 2, 60000));
-    }
-    console.error('Could not establish MongoDB connection after retries. Continuing without DB (routes may fail).');
-  }
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ SUPABASE_URL or SUPABASE_KEY is missing in environment variables. DB connection skipped.');
+} else {
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('✅ Supabase Client Initialized');
+}
 
-  // Reconnect on disconnects
-  mongoose.connection.on('disconnected', () => {
-    console.warn('MongoDB disconnected. Attempting to reconnect...');
-    connectDB();
-  });
-};
-
-module.exports = connectDB;
+module.exports = supabase;

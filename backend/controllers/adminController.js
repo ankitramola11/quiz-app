@@ -1,7 +1,4 @@
-const User = require('../models/User');
-const Quiz = require('../models/Quiz');
-const Question = require('../models/Question');
-const Attempt = require('../models/Attempt');
+const supabase = require('../config/db');
 const { calculateScore } = require('../utils/scoring');
 const { PDFParse } = require('pdf-parse');
 const { GoogleGenAI } = require('@google/genai');
@@ -11,32 +8,41 @@ const { GoogleGenAI } = require('@google/genai');
 // GET /api/admin/dashboard
 const getDashboard = async (req, res) => {
   try {
-    const [totalParticipants, totalAttempts, completedAttempts, attempts] = await Promise.all([
-      User.countDocuments({ role: 'student' }),
-      Attempt.countDocuments(),
-      Attempt.countDocuments({ status: { $in: ['completed', 'timed-out'] } }),
-      Attempt.find({ status: 'completed' }).select('score percentage resultStatus submittedAt')
-        .populate('userId', 'name email')
-        .sort({ submittedAt: -1 }).limit(10)
-    ]);
+    const { count: totalParticipants } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'student');
+    const { count: totalAttempts } = await supabase.from('attempts').select('*', { count: 'exact', head: true });
+    const { count: completedAttempts } = await supabase.from('attempts').select('*', { count: 'exact', head: true }).in('status', ['completed', 'timed-out']);
+    
+    const { data: recentAttempts } = await supabase
+      .from('attempts')
+      .select('score, percentage, result_status, submitted_at, users(name, email)')
+      .eq('status', 'completed')
+      .order('submitted_at', { ascending: false })
+      .limit(10);
 
-    const scores = await Attempt.find({ status: 'completed' }).select('score percentage');
-    const avgScore = scores.length ? (scores.reduce((s, a) => s + (a.percentage || 0), 0) / scores.length).toFixed(2) : 0;
-    const highestScore = scores.length ? Math.max(...scores.map(a => a.score || 0)) : 0;
-    const passCount = scores.filter(a => (a.percentage || 0) >= 50).length;
-    const passPercentage = scores.length ? ((passCount / scores.length) * 100).toFixed(2) : 0;
+    const { data: scores } = await supabase.from('attempts').select('score, percentage').eq('status', 'completed');
+
+    const avgScore = scores && scores.length ? (scores.reduce((s, a) => s + (Number(a.percentage) || 0), 0) / scores.length).toFixed(2) : 0;
+    const highestScore = scores && scores.length ? Math.max(...scores.map(a => Number(a.score) || 0)) : 0;
+    const passCount = scores ? scores.filter(a => (Number(a.percentage) || 0) >= 50).length : 0;
+    const passPercentage = scores && scores.length ? ((passCount / scores.length) * 100).toFixed(2) : 0;
 
     res.json({
       success: true,
       stats: {
-        totalParticipants,
-        totalAttempts,
-        completedAttempts,
+        totalParticipants: totalParticipants || 0,
+        totalAttempts: totalAttempts || 0,
+        completedAttempts: completedAttempts || 0,
         avgScore,
         highestScore,
         passPercentage
       },
-      recentSubmissions: attempts
+      recentSubmissions: recentAttempts ? recentAttempts.map(a => ({
+        score: a.score,
+        percentage: a.percentage,
+        resultStatus: a.result_status,
+        submittedAt: a.submitted_at,
+        userId: { name: a.users?.name, email: a.users?.email }
+      })) : []
     });
   } catch (error) {
     console.error('getDashboard error:', error);
@@ -49,14 +55,32 @@ const getDashboard = async (req, res) => {
 const getQuestions = async (req, res) => {
   try {
     const { quizId, category, difficulty, search } = req.query;
-    const filter = {};
-    if (quizId) filter.quizId = quizId;
-    if (category) filter.category = category;
-    if (difficulty) filter.difficulty = difficulty;
-    if (search) filter.questionText = { $regex: search, $options: 'i' };
+    let query = supabase.from('questions').select('*').order('created_at', { ascending: false });
 
-    const questions = await Question.find(filter).sort({ createdAt: -1 });
-    res.json({ success: true, count: questions.length, questions });
+    if (quizId) query = query.eq('quiz_id', quizId);
+    if (category) query = query.eq('category', category);
+    if (difficulty) query = query.eq('difficulty', difficulty);
+    if (search) query = query.ilike('question_text', `%${search}%`);
+
+    const { data: questions, error } = await query;
+    if (error) throw error;
+
+    const mapped = questions.map(q => ({
+      _id: q.id,
+      quizId: q.quiz_id,
+      questionText: q.question_text,
+      options: q.options,
+      correctOptionIndex: q.correct_option_index,
+      marks: q.marks,
+      negativeMarks: q.negative_marks,
+      category: q.category,
+      difficulty: q.difficulty,
+      explanation: q.explanation,
+      isActive: q.is_active,
+      createdAt: q.created_at
+    }));
+
+    res.json({ success: true, count: mapped.length, questions: mapped });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch questions.' });
   }
@@ -68,8 +92,24 @@ const createQuestion = async (req, res) => {
     if (!quizId || !questionText || !options || correctOptionIndex === undefined || !category) {
       return res.status(400).json({ success: false, message: 'Required fields missing.' });
     }
-    const question = await Question.create({ quizId, questionText, options, correctOptionIndex, marks, negativeMarks, category, difficulty, explanation });
-    res.status(201).json({ success: true, message: 'Question created.', question });
+    const { data: question, error } = await supabase
+      .from('questions')
+      .insert({
+        quiz_id: quizId,
+        question_text: questionText,
+        options,
+        correct_option_index: correctOptionIndex,
+        marks,
+        negative_marks: negativeMarks,
+        category,
+        difficulty,
+        explanation
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    res.status(201).json({ success: true, message: 'Question created.', question: { _id: question.id, ...question } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || 'Failed to create question.' });
   }
@@ -77,9 +117,23 @@ const createQuestion = async (req, res) => {
 
 const getQuestion = async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id);
-    if (!question) return res.status(404).json({ success: false, message: 'Question not found.' });
-    res.json({ success: true, question });
+    const { data: question, error } = await supabase.from('questions').select('*').eq('id', req.params.id).maybeSingle();
+    if (error || !question) return res.status(404).json({ success: false, message: 'Question not found.' });
+    
+    const mapped = {
+      _id: question.id,
+      quizId: question.quiz_id,
+      questionText: question.question_text,
+      options: question.options,
+      correctOptionIndex: question.correct_option_index,
+      marks: question.marks,
+      negativeMarks: question.negative_marks,
+      category: question.category,
+      difficulty: question.difficulty,
+      explanation: question.explanation,
+      isActive: question.is_active
+    };
+    res.json({ success: true, question: mapped });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch question.' });
   }
@@ -87,9 +141,29 @@ const getQuestion = async (req, res) => {
 
 const updateQuestion = async (req, res) => {
   try {
-    const question = await Question.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!question) return res.status(404).json({ success: false, message: 'Question not found.' });
-    res.json({ success: true, message: 'Question updated.', question });
+    const { quizId, questionText, options, correctOptionIndex, marks, negativeMarks, category, difficulty, explanation, isActive } = req.body;
+    
+    const updates = {};
+    if (quizId !== undefined) updates.quiz_id = quizId;
+    if (questionText !== undefined) updates.question_text = questionText;
+    if (options !== undefined) updates.options = options;
+    if (correctOptionIndex !== undefined) updates.correct_option_index = correctOptionIndex;
+    if (marks !== undefined) updates.marks = marks;
+    if (negativeMarks !== undefined) updates.negative_marks = negativeMarks;
+    if (category !== undefined) updates.category = category;
+    if (difficulty !== undefined) updates.difficulty = difficulty;
+    if (explanation !== undefined) updates.explanation = explanation;
+    if (isActive !== undefined) updates.is_active = isActive;
+
+    const { data: question, error } = await supabase
+      .from('questions')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+      
+    if (error) return res.status(404).json({ success: false, message: 'Question not found.' });
+    res.json({ success: true, message: 'Question updated.', question: { _id: question.id, ...question } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || 'Failed to update question.' });
   }
@@ -97,8 +171,8 @@ const updateQuestion = async (req, res) => {
 
 const deleteQuestion = async (req, res) => {
   try {
-    const question = await Question.findByIdAndDelete(req.params.id);
-    if (!question) return res.status(404).json({ success: false, message: 'Question not found.' });
+    const { error } = await supabase.from('questions').delete().eq('id', req.params.id);
+    if (error) return res.status(404).json({ success: false, message: 'Question not found.' });
     res.json({ success: true, message: 'Question deleted.' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to delete question.' });
@@ -109,10 +183,29 @@ const deleteQuestion = async (req, res) => {
 
 const getQuizzes = async (req, res) => {
   try {
-    const quizzes = await Quiz.find().sort({ createdAt: -1 });
+    const { data: quizzes, error } = await supabase.from('quizzes').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    
     const quizzesWithCount = await Promise.all(quizzes.map(async (q) => {
-      const count = await Question.countDocuments({ quizId: q._id, isActive: true });
-      return { ...q.toObject(), questionCount: count };
+      const { count } = await supabase.from('questions').select('*', { count: 'exact', head: true }).eq('quiz_id', q.id).eq('is_active', true);
+      return {
+        _id: q.id,
+        title: q.title,
+        description: q.description,
+        durationMinutes: q.duration_minutes,
+        totalMarks: q.total_marks,
+        marksPerQuestion: q.marks_per_question,
+        negativeMarks: q.negative_marks,
+        passingPercentage: q.passing_percentage,
+        maxAttempts: q.max_attempts,
+        isActive: q.is_active,
+        randomizeQuestions: q.randomize_questions,
+        randomizeOptions: q.randomize_options,
+        showResultAfterSubmit: q.show_result_after_submit,
+        startAt: q.start_at,
+        endAt: q.end_at,
+        questionCount: count || 0
+      };
     }));
     res.json({ success: true, quizzes: quizzesWithCount });
   } catch (error) {
@@ -122,8 +215,18 @@ const getQuizzes = async (req, res) => {
 
 const createQuiz = async (req, res) => {
   try {
-    const quiz = await Quiz.create(req.body);
-    res.status(201).json({ success: true, message: 'Quiz created.', quiz });
+    const { title, description, durationMinutes, totalMarks, marksPerQuestion, negativeMarks, passingPercentage, maxAttempts, isActive, randomizeQuestions, randomizeOptions, showResultAfterSubmit, startAt, endAt } = req.body;
+    
+    const { data: quiz, error } = await supabase
+      .from('quizzes')
+      .insert({
+        title, description, duration_minutes: durationMinutes, total_marks: totalMarks, marks_per_question: marksPerQuestion, negative_marks: negativeMarks, passing_percentage: passingPercentage, max_attempts: maxAttempts, is_active: isActive, randomize_questions: randomizeQuestions, randomize_options: randomizeOptions, show_result_after_submit: showResultAfterSubmit, start_at: startAt, end_at: endAt
+      })
+      .select()
+      .single();
+      
+    if (error) throw error;
+    res.status(201).json({ success: true, message: 'Quiz created.', quiz: { _id: quiz.id, ...quiz } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || 'Failed to create quiz.' });
   }
@@ -131,9 +234,33 @@ const createQuiz = async (req, res) => {
 
 const updateQuiz = async (req, res) => {
   try {
-    const quiz = await Quiz.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found.' });
-    res.json({ success: true, message: 'Quiz updated.', quiz });
+    const { title, description, durationMinutes, totalMarks, marksPerQuestion, negativeMarks, passingPercentage, maxAttempts, isActive, randomizeQuestions, randomizeOptions, showResultAfterSubmit, startAt, endAt } = req.body;
+    
+    const updates = {};
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (durationMinutes !== undefined) updates.duration_minutes = durationMinutes;
+    if (totalMarks !== undefined) updates.total_marks = totalMarks;
+    if (marksPerQuestion !== undefined) updates.marks_per_question = marksPerQuestion;
+    if (negativeMarks !== undefined) updates.negative_marks = negativeMarks;
+    if (passingPercentage !== undefined) updates.passing_percentage = passingPercentage;
+    if (maxAttempts !== undefined) updates.max_attempts = maxAttempts;
+    if (isActive !== undefined) updates.is_active = isActive;
+    if (randomizeQuestions !== undefined) updates.randomize_questions = randomizeQuestions;
+    if (randomizeOptions !== undefined) updates.randomize_options = randomizeOptions;
+    if (showResultAfterSubmit !== undefined) updates.show_result_after_submit = showResultAfterSubmit;
+    if (startAt !== undefined) updates.start_at = startAt;
+    if (endAt !== undefined) updates.end_at = endAt;
+
+    const { data: quiz, error } = await supabase
+      .from('quizzes')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+      
+    if (error) return res.status(404).json({ success: false, message: 'Quiz not found.' });
+    res.json({ success: true, message: 'Quiz updated.', quiz: { _id: quiz.id, ...quiz } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || 'Failed to update quiz.' });
   }
@@ -141,16 +268,14 @@ const updateQuiz = async (req, res) => {
 
 const deleteQuiz = async (req, res) => {
   try {
-    const quiz = await Quiz.findByIdAndDelete(req.params.id);
-    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found.' });
-    await Question.deleteMany({ quizId: quiz._id });
-    await Attempt.deleteMany({ quizId: quiz._id });
+    // Supabase foreign keys should have ON DELETE CASCADE so deleting the quiz will delete questions and attempts.
+    const { error } = await supabase.from('quizzes').delete().eq('id', req.params.id);
+    if (error) return res.status(404).json({ success: false, message: 'Quiz not found.' });
     res.json({ success: true, message: 'Quiz and related data deleted.' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to delete quiz.' });
   }
 };
-
 
 const generateQuizFromPdf = async (req, res) => {
   try {
@@ -164,13 +289,11 @@ const generateQuizFromPdf = async (req, res) => {
 
     const { title, description, durationMinutes, totalMarks, marksPerQuestion, negativeMarks, passingPercentage, maxAttempts, category } = req.body;
 
-    // Parse the PDF
     const parser = new PDFParse({ data: req.file.buffer });
     const pdfData = await parser.getText();
     const pdfText = pdfData.text;
     await parser.destroy();
 
-    // Call Gemini
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     
     const prompt = `
@@ -198,35 +321,39 @@ const generateQuizFromPdf = async (req, res) => {
 
     const questionsJson = JSON.parse(response.text);
 
-    // Create the Quiz
-    const quiz = await Quiz.create({
-      title,
-      description,
-      durationMinutes,
-      totalMarks,
-      marksPerQuestion: marksPerQuestion || 1,
-      negativeMarks: negativeMarks || 0,
-      passingPercentage,
-      maxAttempts,
-      isActive: true
-    });
+    const { data: quiz, error: quizError } = await supabase
+      .from('quizzes')
+      .insert({
+        title,
+        description,
+        duration_minutes: durationMinutes,
+        total_marks: totalMarks,
+        marks_per_question: marksPerQuestion || 1,
+        negative_marks: negativeMarks || 0,
+        passing_percentage: passingPercentage,
+        max_attempts: maxAttempts,
+        is_active: true
+      })
+      .select()
+      .single();
 
-    // Create Questions
+    if (quizError) throw quizError;
+
     const questionsToInsert = questionsJson.map(q => ({
-      quizId: quiz._id,
-      questionText: q.questionText,
+      quiz_id: quiz.id,
+      question_text: q.questionText,
       options: q.options,
-      correctOptionIndex: q.correctOptionIndex,
+      correct_option_index: q.correctOptionIndex,
       marks: marksPerQuestion || 1,
-      negativeMarks: negativeMarks || 0,
+      negative_marks: negativeMarks || 0,
       category: category || 'Quantitative Aptitude',
       difficulty: q.difficulty || 'Medium',
       explanation: q.explanation || ''
     }));
 
-    await Question.insertMany(questionsToInsert);
+    await supabase.from('questions').insert(questionsToInsert);
 
-    res.status(201).json({ success: true, message: 'Quiz generated from PDF successfully.', quiz });
+    res.status(201).json({ success: true, message: 'Quiz generated from PDF successfully.', quiz: { _id: quiz.id, ...quiz } });
 
   } catch (error) {
     console.error('generateQuizFromPdf error:', error);
@@ -239,20 +366,42 @@ const generateQuizFromPdf = async (req, res) => {
 const getParticipants = async (req, res) => {
   try {
     const { search } = req.query;
-    const filter = { role: 'student' };
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+    let query = supabase.from('users').select('id, name, email, course, semester, department, gender, ieee_status, role, created_at').eq('role', 'student').order('created_at', { ascending: false });
 
-      ];
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
     }
-    const users = await User.find(filter).select('-passwordHash').sort({ createdAt: -1 });
+
+    const { data: users, error } = await query;
+    if (error) throw error;
+
     const usersWithAttempts = await Promise.all(users.map(async (u) => {
-      const attempt = await Attempt.findOne({ userId: u._id, status: 'completed' }).select('score percentage resultStatus submittedAt');
-      return { ...u.toObject(), attempt };
+      const { data: attempt } = await supabase
+        .from('attempts')
+        .select('score, percentage, result_status, submitted_at')
+        .eq('user_id', u.id)
+        .eq('status', 'completed')
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return {
+        _id: u.id,
+        name: u.name,
+        email: u.email,
+        course: u.course,
+        semester: u.semester,
+        department: u.department,
+        ieeeStatus: u.ieee_status,
+        attempt: attempt ? {
+          score: attempt.score,
+          percentage: attempt.percentage,
+          resultStatus: attempt.result_status,
+          submittedAt: attempt.submitted_at
+        } : null
+      };
     }));
-    res.json({ success: true, count: users.length, participants: usersWithAttempts });
+    res.json({ success: true, count: usersWithAttempts.length, participants: usersWithAttempts });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch participants.' });
   }
@@ -263,33 +412,34 @@ const getParticipants = async (req, res) => {
 const getResults = async (req, res) => {
   try {
     const { sortBy = 'score', order = 'desc', status } = req.query;
-    const filter = { status: 'completed' };
-    if (status) filter.resultStatus = status;
+    let query = supabase
+      .from('attempts')
+      .select('*, users(name, email, course, semester), quizzes(title, total_marks)')
+      .eq('status', 'completed');
 
-    const sortObj = {};
-    sortObj[sortBy === 'time' ? 'submittedAt' : 'score'] = order === 'asc' ? 1 : -1;
+    if (status) query = query.eq('result_status', status);
 
-    const attempts = await Attempt.find(filter)
-      .populate('userId', 'name email course semester')
-      .populate('quizId', 'title totalMarks')
-      .sort(sortObj);
+    const sortCol = sortBy === 'time' ? 'submitted_at' : 'score';
+    query = query.order(sortCol, { ascending: order === 'asc' });
+
+    const { data: attempts, error } = await query;
+    if (error) throw error;
 
     const ranked = attempts.map((a, i) => ({
       rank: i + 1,
-      name: a.userId?.name,
-      email: a.userId?.email,
-
-      course: a.userId?.course,
-      quizTitle: a.quizId?.title,
+      name: a.users?.name,
+      email: a.users?.email,
+      course: a.users?.course,
+      quizTitle: a.quizzes?.title,
       score: a.score,
-      totalMarks: a.quizId?.totalMarks,
+      totalMarks: a.quizzes?.total_marks,
       percentage: a.percentage,
       correct: a.correct,
       incorrect: a.incorrect,
       unattempted: a.unattempted,
-      resultStatus: a.resultStatus,
-      startedAt: a.startedAt,
-      submittedAt: a.submittedAt
+      resultStatus: a.result_status,
+      startedAt: a.started_at,
+      submittedAt: a.submitted_at
     }));
 
     res.json({ success: true, count: ranked.length, results: ranked });
@@ -298,32 +448,33 @@ const getResults = async (req, res) => {
   }
 };
 
-// GET /api/admin/results/export — CSV
 const exportResults = async (req, res) => {
   try {
-    const attempts = await Attempt.find({ status: 'completed' })
-      .populate('userId', 'name email course semester')
-      .populate('quizId', 'title totalMarks')
-      .sort({ score: -1 });
+    const { data: attempts, error } = await supabase
+      .from('attempts')
+      .select('*, users(name, email, course, semester), quizzes(title, total_marks)')
+      .eq('status', 'completed')
+      .order('score', { ascending: false });
 
-    const header = 'Rank,Name,Email,Enrollment No,Course,Quiz,Score,Total Marks,Percentage,Correct,Incorrect,Unattempted,Started At,Submitted At,Status\n';
+    if (error) throw error;
+
+    const header = 'Rank,Name,Email,Course,Quiz,Score,Total Marks,Percentage,Correct,Incorrect,Unattempted,Started At,Submitted At,Status\n';
     const rows = attempts.map((a, i) =>
       [
         i + 1,
-        `"${a.userId?.name || ''}"`,
-        a.userId?.email || '',
-
-        `"${a.userId?.course || ''}"`,
-        `"${a.quizId?.title || ''}"`,
+        `"${a.users?.name || ''}"`,
+        a.users?.email || '',
+        `"${a.users?.course || ''}"`,
+        `"${a.quizzes?.title || ''}"`,
         a.score,
-        a.quizId?.totalMarks,
+        a.quizzes?.total_marks,
         a.percentage,
         a.correct,
         a.incorrect,
         a.unattempted,
-        a.startedAt ? new Date(a.startedAt).toISOString() : '',
-        a.submittedAt ? new Date(a.submittedAt).toISOString() : '',
-        a.resultStatus
+        a.started_at ? new Date(a.started_at).toISOString() : '',
+        a.submitted_at ? new Date(a.submitted_at).toISOString() : '',
+        a.result_status
       ].join(',')
     ).join('\n');
 

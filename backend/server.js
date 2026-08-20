@@ -5,7 +5,7 @@ const helmet = require('helmet');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 
-const connectDB = require('./config/db');
+const supabase = require('./config/db');
 
 // Routes
 const authRoutes = require('./routes/authRoutes');
@@ -18,8 +18,7 @@ const app = express();
 // Trust reverse proxy (required for Render, Heroku etc.)
 app.set('trust proxy', 1);
 
-// Connect Database
-connectDB();
+// Database initialized via require('./config/db')
 
 // Security Middleware
 app.use(helmet({

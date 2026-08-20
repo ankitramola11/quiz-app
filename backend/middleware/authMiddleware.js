@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const supabase = require('../config/db');
 
 const protect = async (req, res, next) => {
   try {
@@ -14,9 +14,14 @@ const protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select('-passwordHash');
+    
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, course, semester')
+      .eq('id', decoded.id)
+      .maybeSingle();
 
-    if (!user) {
+    if (error || !user) {
       return res.status(401).json({ success: false, message: 'User no longer exists.' });
     }
 

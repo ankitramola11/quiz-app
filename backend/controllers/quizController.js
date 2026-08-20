@@ -1,52 +1,65 @@
-const Quiz = require('../models/Quiz');
-const Question = require('../models/Question');
-const Attempt = require('../models/Attempt');
+const supabase = require('../config/db');
 const { shuffle } = require('../utils/scoring');
 
 // GET /api/quizzes/active
 const getActiveQuiz = async (req, res) => {
   try {
-    const now = new Date();
-    const quiz = await Quiz.findOne({
-      isActive: true,
-      $or: [
-        { startAt: null },
-        { startAt: { $lte: now } }
-      ],
-      $or: [
-        { endAt: null },
-        { endAt: { $gte: now } }
-      ]
-    }).select('-__v');
+    const now = new Date().toISOString();
+    
+    const { data: quizzes, error: quizError } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('is_active', true);
+
+    if (quizError || !quizzes || quizzes.length === 0) {
+      return res.status(404).json({ success: false, message: 'No active quiz found at this time.' });
+    }
+
+    const quiz = quizzes.find(q => {
+      const start = q.start_at ? new Date(q.start_at).getTime() : null;
+      const end = q.end_at ? new Date(q.end_at).getTime() : null;
+      const currentTime = new Date(now).getTime();
+      
+      const isStarted = !start || start <= currentTime;
+      const isEnded = end && end < currentTime;
+      
+      return isStarted && !isEnded;
+    });
 
     if (!quiz) {
       return res.status(404).json({ success: false, message: 'No active quiz found at this time.' });
     }
 
-    // Check if user already has a completed attempt
-    const existingAttempt = await Attempt.findOne({
-      userId: req.user._id,
-      quizId: quiz._id,
-      status: { $in: ['completed', 'timed-out'] }
-    });
+    const { data: existingAttempts } = await supabase
+      .from('attempts')
+      .select('id, status')
+      .eq('user_id', req.user.id)
+      .eq('quiz_id', quiz.id)
+      .in('status', ['completed', 'timed-out']);
 
-    const questionCount = await Question.countDocuments({ quizId: quiz._id, isActive: true });
+    const existingAttempt = existingAttempts && existingAttempts.length > 0 ? existingAttempts[0] : null;
+
+    const { count } = await supabase
+      .from('questions')
+      .select('*', { count: 'exact', head: true })
+      .eq('quiz_id', quiz.id)
+      .eq('is_active', true);
 
     res.json({
       success: true,
       quiz: {
-        _id: quiz._id,
+        _id: quiz.id,
         title: quiz.title,
         description: quiz.description,
-        durationMinutes: quiz.durationMinutes,
-        totalMarks: quiz.totalMarks,
-        marksPerQuestion: quiz.marksPerQuestion,
-        negativeMarks: quiz.negativeMarks,
-        passingPercentage: quiz.passingPercentage,
-        maxAttempts: quiz.maxAttempts,
-        questionCount,
+        durationMinutes: quiz.duration_minutes,
+        totalMarks: quiz.total_marks,
+        marksPerQuestion: quiz.marks_per_question,
+        negativeMarks: quiz.negative_marks,
+        passingPercentage: quiz.passing_percentage,
+        maxAttempts: quiz.max_attempts,
+        questionCount: count || 0,
         alreadyAttempted: !!existingAttempt,
-        attemptId: existingAttempt ? existingAttempt._id : null
+        attemptId: existingAttempt ? existingAttempt.id : null
       }
     });
   } catch (error) {
@@ -60,38 +73,66 @@ const getQuizQuestions = async (req, res) => {
   try {
     const { quizId } = req.params;
 
-    // Verify active attempt exists
-    const attempt = await Attempt.findOne({
-      userId: req.user._id,
-      quizId,
-      status: 'in-progress'
-    });
+    const { data: attempt } = await supabase
+      .from('attempts')
+      .select('id, started_at')
+      .eq('user_id', req.user.id)
+      .eq('quiz_id', quizId)
+      .eq('status', 'in-progress')
+      .maybeSingle();
 
     if (!attempt) {
       return res.status(403).json({ success: false, message: 'No active attempt found. Please start the quiz first.' });
     }
 
-    const quiz = await Quiz.findById(quizId);
+    const { data: quiz } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('id', quizId)
+      .maybeSingle();
+
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found.' });
 
-    let questions = await Question.findById
-      ? await Question.find({ quizId, isActive: true }).select('-correctOptionIndex -__v')
-      : [];
+    let { data: questions } = await supabase
+      .from('questions')
+      .select('id, question_text, options, marks, negative_marks, category, difficulty, is_active')
+      .eq('quiz_id', quizId)
+      .eq('is_active', true);
 
-    // Actually query correctly:
-    questions = await Question.find({ quizId, isActive: true }).select('-correctOptionIndex -explanation -__v');
+    if (!questions) questions = [];
 
-    if (quiz.randomizeQuestions) {
+    // format for frontend compatibility
+    questions = questions.map(q => ({
+      _id: q.id,
+      questionText: q.question_text,
+      options: q.options,
+      marks: q.marks,
+      negativeMarks: q.negative_marks,
+      category: q.category,
+      difficulty: q.difficulty
+    }));
+
+    if (quiz.randomize_questions) {
       questions = shuffle(questions);
     }
 
+    const { data: savedAnswersData } = await supabase
+      .from('attempt_answers')
+      .select('question_id, selected_option_index')
+      .eq('attempt_id', attempt.id);
+
+    const savedAnswers = savedAnswersData ? savedAnswersData.map(a => ({
+      questionId: a.question_id,
+      selectedOptionIndex: a.selected_option_index
+    })) : [];
+
     res.json({
       success: true,
-      attemptId: attempt._id,
-      startedAt: attempt.startedAt,
-      durationMinutes: quiz.durationMinutes,
+      attemptId: attempt.id,
+      startedAt: attempt.started_at,
+      durationMinutes: quiz.duration_minutes,
       questions,
-      savedAnswers: attempt.answers
+      savedAnswers
     });
   } catch (error) {
     console.error('getQuizQuestions error:', error);
@@ -103,66 +144,81 @@ const getQuizQuestions = async (req, res) => {
 const startAttempt = async (req, res) => {
   try {
     const { quizId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
-    const quiz = await Quiz.findById(quizId);
+    const { data: quiz } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('id', quizId)
+      .maybeSingle();
+
     if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found.' });
-    if (!quiz.isActive) return res.status(400).json({ success: false, message: 'This quiz is not active.' });
+    if (!quiz.is_active) return res.status(400).json({ success: false, message: 'This quiz is not active.' });
 
     const now = new Date();
-    if (quiz.startAt && now < quiz.startAt) {
+    if (quiz.start_at && now < new Date(quiz.start_at)) {
       return res.status(400).json({ success: false, message: 'Quiz has not started yet.' });
     }
-    if (quiz.endAt && now > quiz.endAt) {
+    if (quiz.end_at && now > new Date(quiz.end_at)) {
       return res.status(400).json({ success: false, message: 'Quiz has ended.' });
     }
 
-    // Check existing attempts
-    const completedAttempts = await Attempt.countDocuments({
-      userId,
-      quizId,
-      status: { $in: ['completed', 'timed-out'] }
-    });
+    const { count: completedAttempts } = await supabase
+      .from('attempts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('quiz_id', quizId)
+      .in('status', ['completed', 'timed-out']);
 
-    if (completedAttempts >= quiz.maxAttempts) {
-      return res.status(403).json({ success: false, message: `You have already used all ${quiz.maxAttempts} attempt(s) for this quiz.` });
+    if (completedAttempts >= quiz.max_attempts) {
+      return res.status(403).json({ success: false, message: `You have already used all ${quiz.max_attempts} attempt(s) for this quiz.` });
     }
 
-    // Check for in-progress attempt (resume)
-    let attempt = await Attempt.findOne({ userId, quizId, status: 'in-progress' });
+    let { data: attempt } = await supabase
+      .from('attempts')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('quiz_id', quizId)
+      .eq('status', 'in-progress')
+      .maybeSingle();
+
     if (attempt) {
-      // Check if time expired for this in-progress attempt
-      const elapsed = (now - attempt.startedAt) / 1000 / 60;
-      if (elapsed >= quiz.durationMinutes) {
-        // Auto-submit expired attempt
+      const elapsed = (now - new Date(attempt.started_at)) / 1000 / 60;
+      if (elapsed >= quiz.duration_minutes) {
         return res.status(400).json({ success: false, message: 'Your previous attempt has timed out. Please submit it.' });
       }
       return res.json({
         success: true,
         message: 'Resuming existing attempt.',
-        attemptId: attempt._id,
-        quizId: attempt.quizId,
-        startedAt: attempt.startedAt,
-        durationMinutes: quiz.durationMinutes
+        attemptId: attempt.id,
+        quizId: attempt.quiz_id,
+        startedAt: attempt.started_at,
+        durationMinutes: quiz.duration_minutes
       });
     }
 
-    // Create new attempt
-    attempt = await Attempt.create({
-      userId,
-      quizId,
-      startedAt: now,
-      status: 'in-progress',
-      answers: []
-    });
+    const { data: newAttempt, error: createError } = await supabase
+      .from('attempts')
+      .insert({
+        user_id: userId,
+        quiz_id: quizId,
+        started_at: now.toISOString(),
+        status: 'in-progress'
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      throw createError;
+    }
 
     res.status(201).json({
       success: true,
       message: 'Quiz started successfully.',
-      attemptId: attempt._id,
-      quizId: attempt.quizId,
-      startedAt: attempt.startedAt,
-      durationMinutes: quiz.durationMinutes
+      attemptId: newAttempt.id,
+      quizId: newAttempt.quiz_id,
+      startedAt: newAttempt.started_at,
+      durationMinutes: quiz.duration_minutes
     });
   } catch (error) {
     console.error('startAttempt error:', error);

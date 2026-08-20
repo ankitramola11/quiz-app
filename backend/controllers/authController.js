@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const supabase = require('../config/db');
 
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -20,42 +21,53 @@ const register = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
     }
 
-    const existingEmail = await User.findOne({ email: email.toLowerCase() });
+    const { data: existingEmail } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
     if (existingEmail) {
       return res.status(409).json({ success: false, message: 'Email already registered.' });
     }
 
-    const user = await User.create({
-      name,
-      email: email.toLowerCase(),
+    const passwordHash = await bcrypt.hash(password, 12);
 
-      phone,
-      course,
-      semester: Number(semester),
-      department,
-      gender,
-      ieeeStatus,
-      passwordHash: password // pre-save hook will hash this
-    });
+    const { data: user, error } = await supabase
+      .from('users')
+      .insert({
+        name,
+        email: email.toLowerCase(),
+        phone,
+        course,
+        semester: Number(semester),
+        department,
+        gender,
+        ieee_status: ieeeStatus || 'Non-Member',
+        password_hash: passwordHash
+      })
+      .select()
+      .single();
 
-    const token = signToken(user._id);
+    if (error) {
+      console.error('Insert error:', error);
+      return res.status(500).json({ success: false, message: 'Registration failed. Please try again.' });
+    }
+
+    const token = signToken(user.id);
 
     res.status(201).json({
       success: true,
       message: 'Registration successful!',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
-
+        role: user.role
       }
     });
   } catch (error) {
-    if (error.code === 11000) {
-      return res.status(409).json({ success: false, message: 'Email or enrollment number already exists.' });
-    }
     console.error('Register error:', error);
     res.status(500).json({ success: false, message: 'Registration failed. Please try again.' });
   }
@@ -70,28 +82,32 @@ const login = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
-    if (!user) {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (error || !user) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    const token = signToken(user._id);
+    const token = signToken(user.id);
 
     res.json({
       success: true,
       message: 'Login successful!',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-
         course: user.course,
         semester: user.semester
       }
