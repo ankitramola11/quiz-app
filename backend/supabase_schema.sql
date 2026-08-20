@@ -1,7 +1,23 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users Table
+-- ── Drop tables first (order matters due to FK constraints) ──────────────────
+DROP TABLE IF EXISTS attempt_answers CASCADE;
+DROP TABLE IF EXISTS attempts CASCADE;
+DROP TABLE IF EXISTS questions CASCADE;
+DROP TABLE IF EXISTS quizzes CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- ── Drop custom types ────────────────────────────────────────────────────────
+DROP TYPE IF EXISTS attempt_result_status CASCADE;
+DROP TYPE IF EXISTS attempt_status CASCADE;
+DROP TYPE IF EXISTS question_difficulty CASCADE;
+DROP TYPE IF EXISTS question_category CASCADE;
+DROP TYPE IF EXISTS user_ieee_status CASCADE;
+DROP TYPE IF EXISTS user_gender CASCADE;
+DROP TYPE IF EXISTS user_role CASCADE;
+
+-- ── Users Table ──────────────────────────────────────────────────────────────
 CREATE TYPE user_role AS ENUM ('student', 'admin');
 CREATE TYPE user_gender AS ENUM ('Male', 'Female', 'Other', 'Prefer not to say');
 CREATE TYPE user_ieee_status AS ENUM ('Member', 'Non-Member');
@@ -21,7 +37,7 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Quizzes Table
+-- ── Quizzes Table ────────────────────────────────────────────────────────────
 CREATE TABLE quizzes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
@@ -41,7 +57,7 @@ CREATE TABLE quizzes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Questions Table
+-- ── Questions Table ──────────────────────────────────────────────────────────
 CREATE TYPE question_category AS ENUM (
     'Quantitative Aptitude',
     'Logical Reasoning',
@@ -65,7 +81,7 @@ CREATE TABLE questions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Attempts Table
+-- ── Attempts Table ───────────────────────────────────────────────────────────
 CREATE TYPE attempt_status AS ENUM ('in-progress', 'completed', 'timed-out');
 CREATE TYPE attempt_result_status AS ENUM ('QUALIFIED', 'NOT QUALIFIED');
 
@@ -86,7 +102,7 @@ CREATE TABLE attempts (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Attempt Answers Table
+-- ── Attempt Answers Table ────────────────────────────────────────────────────
 CREATE TABLE attempt_answers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     attempt_id UUID REFERENCES attempts(id) ON DELETE CASCADE,
@@ -94,3 +110,4 @@ CREATE TABLE attempt_answers (
     selected_option_index INTEGER,
     UNIQUE(attempt_id, question_id)
 );
+
