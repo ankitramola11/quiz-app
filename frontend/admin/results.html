@@ -66,7 +66,7 @@
     const status = document.getElementById('filter-status').value;
     const params = new URLSearchParams({ sortBy, ...(status ? { status } : {}) });
 
-    const res  = await adminFetch('https://quiz-app-2l4p.onrender.com/api/admin/results?' + params);
+    const res  = await adminFetch('/api/admin/results?' + params);
     const data = await res.json();
 
     const tbody = document.getElementById('results-table');
@@ -106,7 +106,7 @@
     btn.innerHTML = '<span class="spinner"></span> Exporting...';
 
     try {
-      const res = await fetch('https://quiz-app-2l4p.onrender.com/api/admin/results/export', {
+      const res = await fetch('/api/admin/results/export', {
         headers: { Authorization: 'Bearer ' + ADMIN_TOKEN }
       });
       if (!res.ok) throw new Error('Export failed');

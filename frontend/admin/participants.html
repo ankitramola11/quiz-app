@@ -55,7 +55,7 @@
   let allParticipants = [];
 
   async function loadParticipants() {
-    const res  = await adminFetch('https://quiz-app-2l4p.onrender.com/api/admin/participants');
+    const res  = await adminFetch('/api/admin/participants');
     const data = await res.json();
     allParticipants = data.success ? data.participants : [];
     renderTable(allParticipants);
