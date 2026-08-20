@@ -366,7 +366,11 @@ const generateQuizFromPdf = async (req, res) => {
 const getParticipants = async (req, res) => {
   try {
     const { search } = req.query;
-    let query = supabase.from('users').select('id, name, email, course, semester, department, gender, ieee_status, role, created_at').eq('role', 'student').order('created_at', { ascending: false });
+    let query = supabase
+      .from('users')
+      .select('id, name, email, course, semester, department, gender, ieee_status, role, created_at')
+      .eq('role', 'student')
+      .order('created_at', { ascending: false });
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
@@ -375,34 +379,42 @@ const getParticipants = async (req, res) => {
     const { data: users, error } = await query;
     if (error) throw error;
 
-    const usersWithAttempts = await Promise.all(users.map(async (u) => {
-      const { data: attempt } = await supabase
-        .from('attempts')
-        .select('score, percentage, result_status, submitted_at')
-        .eq('user_id', u.id)
-        .eq('status', 'completed')
-        .order('submitted_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    // Batch fetch: ONE query for all completed attempts (not 400 individual queries!)
+    const userIds = users.map(u => u.id);
+    const { data: allAttempts } = userIds.length > 0
+      ? await supabase
+          .from('attempts')
+          .select('user_id, score, percentage, result_status, submitted_at')
+          .in('user_id', userIds)
+          .eq('status', 'completed')
+          .order('submitted_at', { ascending: false })
+      : { data: [] };
 
-      return {
-        _id: u.id,
-        name: u.name,
-        email: u.email,
-        course: u.course,
-        semester: u.semester,
-        department: u.department,
-        ieeeStatus: u.ieee_status,
-        attempt: attempt ? {
-          score: attempt.score,
-          percentage: attempt.percentage,
-          resultStatus: attempt.result_status,
-          submittedAt: attempt.submitted_at
-        } : null
-      };
+    // Build a map of userId → latest attempt
+    const attemptMap = {};
+    (allAttempts || []).forEach(a => {
+      if (!attemptMap[a.user_id]) attemptMap[a.user_id] = a; // first = latest due to ordering
+    });
+
+    const participants = users.map(u => ({
+      _id: u.id,
+      name: u.name,
+      email: u.email,
+      course: u.course,
+      semester: u.semester,
+      department: u.department,
+      ieeeStatus: u.ieee_status,
+      attempt: attemptMap[u.id] ? {
+        score: attemptMap[u.id].score,
+        percentage: attemptMap[u.id].percentage,
+        resultStatus: attemptMap[u.id].result_status,
+        submittedAt: attemptMap[u.id].submitted_at
+      } : null
     }));
-    res.json({ success: true, count: usersWithAttempts.length, participants: usersWithAttempts });
+
+    res.json({ success: true, count: participants.length, participants });
   } catch (error) {
+    console.error('getParticipants error:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch participants.' });
   }
 };

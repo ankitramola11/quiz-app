@@ -14,7 +14,22 @@ const protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
+    // If the JWT already carries essential user fields, skip the DB call.
+    // This drastically reduces DB load when 400 students make concurrent requests.
+    if (decoded.id && decoded.role && decoded.name) {
+      req.user = {
+        id: decoded.id,
+        name: decoded.name,
+        email: decoded.email,
+        role: decoded.role,
+        course: decoded.course,
+        semester: decoded.semester
+      };
+      return next();
+    }
+
+    // Fallback: fetch from DB (for tokens issued before this change)
     const { data: user, error } = await supabase
       .from('users')
       .select('id, name, email, role, course, semester')

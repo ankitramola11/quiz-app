@@ -1,9 +1,7 @@
-// Firebase Configuration – IEEE SRHU Quiz App
-// Uses Firebase CDN (ES Modules) – no bundler required
+// Firebase Analytics – IEEE SRHU Quiz App
+// Wrapped in try/catch so analytics failures NEVER break the core quiz flow
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAnalytics, logEvent } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+let analytics = null;
 
 const firebaseConfig = {
   apiKey: "AIzaSyCHvzjuMjBa41NGIBIYREzLl9-DpsBxzOI",
@@ -15,39 +13,36 @@ const firebaseConfig = {
   measurementId: "G-S5NPT5F9VL"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Stub functions (used as fallback if Firebase fails to load)
+const noop = () => {};
+let _trackPageView = noop;
+let _trackLogin = noop;
+let _trackQuizStart = noop;
+let _trackQuizSubmit = noop;
+let _trackRegister = noop;
 
-// Analytics
-export const analytics = getAnalytics(app);
+// Async init — does NOT block page load
+(async () => {
+  try {
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    const { getAnalytics, logEvent } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js");
 
-// Firestore
-export const db = getFirestore(app);
+    const app = initializeApp(firebaseConfig);
+    analytics = getAnalytics(app);
 
-// ─── Analytics Helper Functions ──────────────────────────────────
-// Call these from any page to track events
+    _trackPageView  = (p)      => logEvent(analytics, 'page_view',    { page_title: p });
+    _trackLogin     = (m='email') => logEvent(analytics, 'login',     { method: m });
+    _trackQuizStart = (id, t)  => logEvent(analytics, 'quiz_start',   { quiz_id: id, quiz_title: t });
+    _trackQuizSubmit= (id,s,t) => logEvent(analytics, 'quiz_submit',  { quiz_id: id, score: s, total_marks: t, percentage: Math.round((s/t)*100) });
+    _trackRegister  = ()       => logEvent(analytics, 'sign_up',      { method: 'email' });
+  } catch (e) {
+    // Analytics blocked or unavailable — core app continues normally
+    console.warn('[Analytics] Firebase unavailable:', e.message);
+  }
+})();
 
-export function trackPageView(pageName) {
-  logEvent(analytics, 'page_view', { page_title: pageName });
-}
-
-export function trackLogin(method = 'email') {
-  logEvent(analytics, 'login', { method });
-}
-
-export function trackQuizStart(quizId, quizTitle) {
-  logEvent(analytics, 'quiz_start', { quiz_id: quizId, quiz_title: quizTitle });
-}
-
-export function trackQuizSubmit(quizId, score, totalMarks) {
-  logEvent(analytics, 'quiz_submit', {
-    quiz_id: quizId,
-    score: score,
-    total_marks: totalMarks,
-    percentage: Math.round((score / totalMarks) * 100)
-  });
-}
-
-export function trackRegister() {
-  logEvent(analytics, 'sign_up', { method: 'email' });
-}
+export const trackPageView   = (...a) => _trackPageView(...a);
+export const trackLogin      = (...a) => _trackLogin(...a);
+export const trackQuizStart  = (...a) => _trackQuizStart(...a);
+export const trackQuizSubmit = (...a) => _trackQuizSubmit(...a);
+export const trackRegister   = (...a) => _trackRegister(...a);

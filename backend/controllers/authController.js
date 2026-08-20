@@ -2,10 +2,12 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const supabase = require('../config/db');
 
-const signToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d'
-  });
+const signToken = (user) => {
+  return jwt.sign(
+    { id: user.id, name: user.name, email: user.email, role: user.role, course: user.course, semester: user.semester },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+  );
 };
 
 // POST /api/auth/register
@@ -54,7 +56,7 @@ const register = async (req, res) => {
       return res.status(500).json({ success: false, message: 'Registration failed. Please try again.' });
     }
 
-    const token = signToken(user.id);
+    const token = signToken(user);
 
     res.status(201).json({
       success: true,
@@ -97,7 +99,7 @@ const login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
     }
 
-    const token = signToken(user.id);
+    const token = signToken(user);
 
     res.json({
       success: true,

@@ -111,3 +111,20 @@ CREATE TABLE attempt_answers (
     UNIQUE(attempt_id, question_id)
 );
 
+-- ── Performance Indexes ───────────────────────────────────────────────────────
+-- Critical for 400-student load: prevents full table scans on hot paths
+
+CREATE INDEX IF NOT EXISTS idx_attempts_user_id        ON attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_attempts_quiz_id        ON attempts(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_attempts_status         ON attempts(status);
+CREATE INDEX IF NOT EXISTS idx_attempts_user_quiz      ON attempts(user_id, quiz_id);
+CREATE INDEX IF NOT EXISTS idx_attempt_answers_attempt ON attempt_answers(attempt_id);
+CREATE INDEX IF NOT EXISTS idx_questions_quiz_id       ON questions(quiz_id);
+CREATE INDEX IF NOT EXISTS idx_users_email             ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role              ON users(role);
+
+-- ── Race Condition Guard ─────────────────────────────────────────────────────
+-- Prevents two simultaneous quiz starts from creating duplicate in-progress attempts
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_attempt_per_user_quiz
+  ON attempts(user_id, quiz_id)
+  WHERE status = 'in-progress';

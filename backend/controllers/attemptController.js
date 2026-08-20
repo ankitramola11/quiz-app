@@ -82,8 +82,13 @@ const submitAttempt = async (req, res) => {
     if (attempt.user_id !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Access denied.' });
     }
+    // Idempotent: if already submitted, return the existing result
     if (attempt.status !== 'in-progress') {
-      return res.status(400).json({ success: false, message: 'This attempt has already been submitted.' });
+      return res.json({ success: true, message: 'Already submitted.', attemptId: attempt.id, result: {
+        score: attempt.score, percentage: attempt.percentage,
+        correct: attempt.correct, incorrect: attempt.incorrect,
+        unattempted: attempt.unattempted, resultStatus: attempt.result_status
+      }});
     }
 
     const { data: quiz } = await supabase.from('quizzes').select('*').eq('id', attempt.quiz_id).single();
@@ -110,10 +115,10 @@ const submitAttempt = async (req, res) => {
       negativeMarks: q.negative_marks
     }));
 
-    const { data: answersData } = await supabase
+    const answersData = (await supabase
       .from('attempt_answers')
       .select('*')
-      .eq('attempt_id', attemptId);
+      .eq('attempt_id', attemptId)).data || [];
 
     const mappedAnswers = answersData.map(a => ({
       questionId: a.question_id,
